@@ -2,7 +2,6 @@ version: "3.9"
 name: media-stack
 services:
   vpn:
-    profiles: ["vpn"]
     container_name: vpn
     image: qmcgaw/gluetun:latest
     cap_add:
@@ -17,16 +16,9 @@ services:
       ## For list of server countries, visit https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
       - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Netherlands}
 
-      # - FREE_ONLY=on  # Valid with protonvpn only. Value willbe set "on" if using free subscription provided by protonvpn
-
-    ## Enable volume if VPN_SERVICE_PROVIDER=custom and VPN_TYPE=openvpn is used
-    # volumes:
-    # - /yourpath/yourconfig.conf:/gluetun/config.conf:ro
-
     networks:
       - mynetwork
 
-    # Uncomment/enable below ports if VPN is used/enabled
     ports:
       # qbittorrent ports
       - 5080:5080
@@ -38,24 +30,19 @@ services:
       - 7878:7878
       # radarr ports
       - 8989:8989
+      # bazarr ports
+      - 6767:6767
     restart: "unless-stopped"
 
   ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
-  ## Change password after install from UI --> Tools --> Options --> WebUI ##
   qbittorrent:
     container_name: qbittorrent
     image: lscr.io/linuxserver/qbittorrent:4.5.4
 
-    # Unomment below if vpn is enabled
-    depends_on: # Uncomment this line if vpn is enabled
-      vpn: # Uncomment this line if vpn is enabled
+    depends_on:
+      vpn:
         condition: service_healthy
 
-    # Comment below lines if VPN is enabled
-    # networks: # Comment this line if vpn is enabled
-    #   - mynetwork # Comment this line if vpn is enabled
-
-    # Unomment below line if vpn is enabled
     network_mode: service:vpn
 
     environment:
@@ -67,33 +54,22 @@ services:
       - qbittorrent-config:/config
       - torrent-downloads:/downloads
 
-    # Comment below ports if VPN is enabled.
-    # ports:
-    #   - 5080:5080
-    #   - 6881:6881
-    #   - 6881:6881/udp
     restart: "unless-stopped"
 
   radarr:
     container_name: radarr
     image: lscr.io/linuxserver/radarr:4.7.5
-    depends_on: # uncomment this line if vpn is enabled
-      vpn: # uncomment this line if vpn is enabled
+    depends_on:
+      vpn:
         condition: service_healthy
       qbittorrent:
         condition: service_started
-    network_mode: service:vpn # uncomment this line if vpn is enabled
-
-    # networks: # comment this line if vpn is enabled
-    #   - mynetwork # comment this line if vpn is enabled
+    network_mode: service:vpn
 
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
-    # Comment below ports if VPN is enabled.
-    # ports:
-    # - 7878:7878
     volumes:
       - radarr-config:/config
       - torrent-downloads:/downloads
@@ -102,16 +78,13 @@ services:
   sonarr:
     image: linuxserver/sonarr:4.0.0-develop
     container_name: sonarr
-    depends_on: # uncomment this line if vpn is enabled
-      vpn: # uncomment this line if vpn is enabled
+    depends_on:
+      vpn:
         condition: service_healthy
       qbittorrent:
         condition: service_started
 
-    network_mode: service:vpn # uncomment this line if vpn is enabled
-
-    # networks: # comment this line if vpn is enabled
-    #   - mynetwork # comment this line if vpn is enabled
+    network_mode: service:vpn
 
     environment:
       - PUID=1000
@@ -120,26 +93,32 @@ services:
     volumes:
       - sonarr-config:/config
       - torrent-downloads:/downloads
-    # Comment below ports if VPN is enabled.
-    # ports:
-    # - 8989:8989
+    restart: unless-stopped
+
+  bazarr:
+    container_name: bazarr
+    image: lscr.io/linuxserver/bazarr:latest
+    network_mode: service:vpn
+
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+    volumes:
+      - bazarr-config:/config
     restart: unless-stopped
 
   prowlarr:
     container_name: prowlarr
     image: linuxserver/prowlarr:1.8.6
 
-    # uncomment below if vpn is enabled
-    depends_on: # uncomment this line if vpn is enabled
-      vpn: # uncomment this line if vpn is enabled
+    depends_on:
+      vpn:
         condition: service_healthy
       qbittorrent:
         condition: service_started
 
-    network_mode: service:vpn # uncomment this line if vpn is enabled
-
-    # networks: # comment this line if vpn is enabled
-    #   - mynetwork # comment this line if vpn is enabled
+    network_mode: service:vpn
 
     environment:
       - PUID=1000
@@ -148,9 +127,6 @@ services:
     volumes:
       - prowlarr-config:/config
 
-    # Comment below ports if VPN is enabled.
-    # ports:
-    #   - 9696:9696
     restart: unless-stopped
 
   jellyfin:
@@ -171,6 +147,17 @@ services:
       - 8096:8096
       - 7359:7359/udp
       - 8920:8920
+    restart: unless-stopped
+
+  monitor:
+    container_name: monitor
+    build:
+      context: monitor
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    network_mode: service:vpn
+
     restart: unless-stopped
 
   # Doc: https://github.com/navilg/cleanmyarr
@@ -222,6 +209,12 @@ volumes:
       type: "none"
       o: "bind"
       device: "/opt/media-server/config/sonarr"
+  bazarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/config/bazarr"
   prowlarr-config:
     driver: local
     driver_opts:
