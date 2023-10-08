@@ -1,55 +1,43 @@
 version: "3.9"
 name: media-stack
 services:
-
-  # To use/enable VPN, Run this compose file with --profile=vpn. Its highly recommended to use VPN.
   vpn:
-  ## Read https://github.com/qdm12/gluetun/wiki for details on configuring VPN for different service providers.
     profiles: ["vpn"]
     container_name: vpn
-    image: qmcgaw/gluetun:v3.35.0
+    image: qmcgaw/gluetun:latest
     cap_add:
       - NET_ADMIN
     environment:
-      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-nordvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
       - OPENVPN_USER=${OPENVPN_USER:-""}
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
+      - VPN_PORT_FORWARDING=on
+      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
 
       ## For list of server countries, visit https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Netherlands}
 
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Switzerland}
-    
       # - FREE_ONLY=on  # Valid with protonvpn only. Value willbe set "on" if using free subscription provided by protonvpn
-
-      ## Enable below if VPN_SERVICE_PROVIDER=custom
-      # - VPN_TYPE=openvpn # or wireguard. 
-
-      ## If VPN_TYPE is openvpn
-      # - OPENVPN_CUSTOM_CONFIG=/gluetun/custom.conf
-
-      ## If VPN_TYPE is wireguard. Replace below env variables as required.
-      # - VPN_ENDPOINT_IP=1.2.3.4                                               # Replace with your wg endpoint ip or domain
-      # - VPN_ENDPOINT_PORT=51820                                               # Replace with wg server port
-      # - WIREGUARD_PUBLIC_KEY=wAUaJMhAq3NFutLHIdF8AN0B5WG8RndfQKLPTEDHal0=     # Replace with your wg public key
-      # - WIREGUARD_PRIVATE_KEY=wOEI9rqqbDwnN8/Bpp22sVz48T71vJ4fYmFWujulwUU=    # Replace with your wg client private key
-      # - WIREGUARD_PRESHARED_KEY=xOEI9rqqbDwnN8/Bpp22sVz48T71vJ4fYmFWujulwUU=  # Replaced with your wg pre-shared key
-      # - WIREGUARD_ADDRESSES="10.64.222.21/32"                                 # Replace with wg address
 
     ## Enable volume if VPN_SERVICE_PROVIDER=custom and VPN_TYPE=openvpn is used
     # volumes:
-      # - /yourpath/yourconfig.conf:/gluetun/config.conf:ro
+    # - /yourpath/yourconfig.conf:/gluetun/config.conf:ro
 
     networks:
       - mynetwork
-    
+
     # Uncomment/enable below ports if VPN is used/enabled
-    # ports:
-    #   # qbittorrent ports
-    #   - 5080:5080
-    #   - 6881:6881
-    #   - 6881:6881/udp
-    #   # prowlarr ports
-    #   - 9696:9696
+    ports:
+      # qbittorrent ports
+      - 5080:5080
+      - 6881:6881
+      - 6881:6881/udp
+      # prowlarr ports
+      - 9696:9696
+      # sonarr ports
+      - 7878:7878
+      # radarr ports
+      - 8989:8989
     restart: "unless-stopped"
 
   ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
@@ -59,15 +47,16 @@ services:
     image: lscr.io/linuxserver/qbittorrent:4.5.4
 
     # Unomment below if vpn is enabled
-    # depends_on:               # Uncomment this line if vpn is enabled
-    #   - vpn                   # Uncomment this line if vpn is enabled
+    depends_on: # Uncomment this line if vpn is enabled
+      vpn: # Uncomment this line if vpn is enabled
+        condition: service_healthy
 
     # Comment below lines if VPN is enabled
-    networks:               # Comment this line if vpn is enabled
-      - mynetwork           # Comment this line if vpn is enabled
+    # networks: # Comment this line if vpn is enabled
+    #   - mynetwork # Comment this line if vpn is enabled
 
     # Unomment below line if vpn is enabled
-    # network_mode: service:vpn
+    network_mode: service:vpn
 
     environment:
       - PUID=1000
@@ -78,24 +67,33 @@ services:
       - qbittorrent-config:/config
       - torrent-downloads:/downloads
 
-    ## Comment/Disable below ports if VPN is enabled
-    ports:
-      - 5080:5080
-      - 6881:6881
-      - 6881:6881/udp
+    # Comment below ports if VPN is enabled.
+    # ports:
+    #   - 5080:5080
+    #   - 6881:6881
+    #   - 6881:6881/udp
     restart: "unless-stopped"
 
   radarr:
     container_name: radarr
     image: lscr.io/linuxserver/radarr:4.7.5
-    networks:
-      - mynetwork
+    depends_on: # uncomment this line if vpn is enabled
+      vpn: # uncomment this line if vpn is enabled
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    network_mode: service:vpn # uncomment this line if vpn is enabled
+
+    # networks: # comment this line if vpn is enabled
+    #   - mynetwork # comment this line if vpn is enabled
+
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=UTC
-    ports:
-      - 7878:7878
+    # Comment below ports if VPN is enabled.
+    # ports:
+    # - 7878:7878
     volumes:
       - radarr-config:/config
       - torrent-downloads:/downloads
@@ -104,8 +102,17 @@ services:
   sonarr:
     image: linuxserver/sonarr:4.0.0-develop
     container_name: sonarr
-    networks:
-      - mynetwork
+    depends_on: # uncomment this line if vpn is enabled
+      vpn: # uncomment this line if vpn is enabled
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+
+    network_mode: service:vpn # uncomment this line if vpn is enabled
+
+    # networks: # comment this line if vpn is enabled
+    #   - mynetwork # comment this line if vpn is enabled
+
     environment:
       - PUID=1000
       - PGID=1000
@@ -113,21 +120,27 @@ services:
     volumes:
       - sonarr-config:/config
       - torrent-downloads:/downloads
-    ports:
-      - 8989:8989
+    # Comment below ports if VPN is enabled.
+    # ports:
+    # - 8989:8989
     restart: unless-stopped
 
   prowlarr:
     container_name: prowlarr
     image: linuxserver/prowlarr:1.8.6
 
-    # Uncomment below if vpn is enabled
-    # depends_on:               # Uncomment this line if vpn is enabled
-    #   - vpn                   # Uncomment this line if vpn is enabled
-    # network_mode: service:vpn # Uncomment this line if vpn is enabled
+    # uncomment below if vpn is enabled
+    depends_on: # uncomment this line if vpn is enabled
+      vpn: # uncomment this line if vpn is enabled
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
 
-    networks:               # Comment this line if vpn is enabled
-      - mynetwork           # Comment this line if vpn is enabled
+    network_mode: service:vpn # uncomment this line if vpn is enabled
+
+    # networks: # comment this line if vpn is enabled
+    #   - mynetwork # comment this line if vpn is enabled
+
     environment:
       - PUID=1000
       - PGID=1000
@@ -136,8 +149,8 @@ services:
       - prowlarr-config:/config
 
     # Comment below ports if VPN is enabled.
-    ports:
-      - 9696:9696
+    # ports:
+    #   - 9696:9696
     restart: unless-stopped
 
   jellyfin:
@@ -152,14 +165,14 @@ services:
     volumes:
       - jellyfin-config:/config
       - torrent-downloads:/data
-  # devices:
-   #  - /dev/videoN:/dev/videoN # Mount GPU device 
+    # devices:
+    #  - /dev/videoN:/dev/videoN # Mount GPU device
     ports:
       - 8096:8096
       - 7359:7359/udp
       - 8920:8920
     restart: unless-stopped
-  
+
   # Doc: https://github.com/navilg/cleanmyarr
   # cleanmyarr:
   #   depends_on:
@@ -171,32 +184,62 @@ services:
   #     - mynetwork
   #   volumes:
   #     - cleanmyarr-config:/config
-    # restart: unless-stopped
-    # environment:
-    # - CMA_MAINTENANCE_CYCLE=${CMA_MAINTENANCE_CYCLE:-""}
-    # - CMA_DELETE_AFTER_DAYS=${CMA_DELETE_AFTER_DAYS:-""}
-    # - CMA_ENABLE_EMAIL_NOTIFICATION=${CMA_ENABLE_EMAIL_NOTIFICATION:-""}
-    # - CMA_SMTP_USERNAME=${CMA_SMTP_USERNAME:-""}
-    # - CMA_SMTP_ENCODED_PASSWORD=${CMA_SMTP_ENCODED_PASSWORD:-""}
-    # - CMA_SMTP_TO_EMAILS=${CMA_SMTP_TO_EMAILS:-""}
-    # - CMA_ENABLE_GOTIFY_NOTIFICATION=${CMA_ENABLE_GOTIFY_NOTIFICATION:-""}
-    # - CMA_GOTIFY_URL=${CMA_GOTIFY_URL:-""}
-    # - CMA_GOTIFY_ENCODED_APP_TOKEN=${CMA_GOTIFY_ENCODED_APP_TOKEN:-""}
-    # - CMA_ENABLE_TELEGRAM_NOTIFICATION=${CMA_ENABLE_TELEGRAM_NOTIFICATION:-""}
-    # - CMA_TELEGRAM_ENCODED_BOT_TOKEN=${CMA_TELEGRAM_ENCODED_BOT_TOKEN:-""}
-    # - CMA_TELEGRAM_CHAT_ID=${CMA_TELEGRAM_CHAT_ID:-""}
-    # - CMA_MONITOR_RADARR=${CMA_MONITOR_RADARR:-""}
-    # - CMA_RADARR_URL=${CMA_RADARR_URL:-""}
-    # - CMA_RADARR_ENCODED_API_KEY=${CMA_RADARR_ENCODED_API_KEY:-""}
-    # - CMA_RADARR_ENABLE_NOTIFICATION=${CMA_RADARR_ENABLE_NOTIFICATION:-""}
+  # restart: unless-stopped
+  # environment:
+  # - CMA_MAINTENANCE_CYCLE=${CMA_MAINTENANCE_CYCLE:-""}
+  # - CMA_DELETE_AFTER_DAYS=${CMA_DELETE_AFTER_DAYS:-""}
+  # - CMA_ENABLE_EMAIL_NOTIFICATION=${CMA_ENABLE_EMAIL_NOTIFICATION:-""}
+  # - CMA_SMTP_USERNAME=${CMA_SMTP_USERNAME:-""}
+  # - CMA_SMTP_ENCODED_PASSWORD=${CMA_SMTP_ENCODED_PASSWORD:-""}
+  # - CMA_SMTP_TO_EMAILS=${CMA_SMTP_TO_EMAILS:-""}
+  # - CMA_ENABLE_GOTIFY_NOTIFICATION=${CMA_ENABLE_GOTIFY_NOTIFICATION:-""}
+  # - CMA_GOTIFY_URL=${CMA_GOTIFY_URL:-""}
+  # - CMA_GOTIFY_ENCODED_APP_TOKEN=${CMA_GOTIFY_ENCODED_APP_TOKEN:-""}
+  # - CMA_ENABLE_TELEGRAM_NOTIFICATION=${CMA_ENABLE_TELEGRAM_NOTIFICATION:-""}
+  # - CMA_TELEGRAM_ENCODED_BOT_TOKEN=${CMA_TELEGRAM_ENCODED_BOT_TOKEN:-""}
+  # - CMA_TELEGRAM_CHAT_ID=${CMA_TELEGRAM_CHAT_ID:-""}
+  # - CMA_MONITOR_RADARR=${CMA_MONITOR_RADARR:-""}
+  # - CMA_RADARR_URL=${CMA_RADARR_URL:-""}
+  # - CMA_RADARR_ENCODED_API_KEY=${CMA_RADARR_ENCODED_API_KEY:-""}
+  # - CMA_RADARR_ENABLE_NOTIFICATION=${CMA_RADARR_ENABLE_NOTIFICATION:-""}
 
 volumes:
   torrent-downloads:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/downloads"
   radarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/config/radarr"
   sonarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/config/sonarr"
   prowlarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/config/prowlarr"
   jellyfin-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/config/jellyfin"
   qbittorrent-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/opt/media-server/config/qbittorrent"
   # cleanmyarr-config:
 
 networks:
