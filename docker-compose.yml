@@ -11,10 +11,11 @@ services:
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
       - VPN_PORT_FORWARDING=on
-      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
 
-      ## For list of server countries, visit https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
-      - SERVER_COUNTRIES=${SERVER_COUNTRIES:-Netherlands}
+      # Servers with P2P
+      - SERVER_HOSTNAMES=node-nl-01.protonvpn.net,node-nl-13.protonvpn.net,node-nl-47.protonvpn.net
+      # Forces TCP
+      - VPN_ENDPOINT_PORT=443
 
     networks:
       - mynetwork
