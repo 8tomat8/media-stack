@@ -13,7 +13,7 @@ services:
       - VPN_PORT_FORWARDING=on
 
       # Servers with P2P
-      - SERVER_HOSTNAMES=node-nl-01.protonvpn.net,node-nl-13.protonvpn.net,node-nl-47.protonvpn.net
+      - SERVER_HOSTNAMES=node-nl-47.protonvpn.net,node-nl-01.protonvpn.net,node-nl-13.protonvpn.net
       # Forces TCP
       - VPN_ENDPOINT_PORT=443
 
@@ -49,7 +49,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=UTC
+      - TZ=Europe/Amsterdam
       - WEBUI_PORT=5080
     volumes:
       - qbittorrent-config:/config
@@ -70,7 +70,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=UTC
+      - TZ=Europe/Amsterdam
     volumes:
       - radarr-config:/config
       - torrent-downloads:/downloads
@@ -90,7 +90,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=UTC
+      - TZ=Europe/Amsterdam
     volumes:
       - sonarr-config:/config
       - torrent-downloads:/downloads
@@ -104,7 +104,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=UTC
+      - TZ=Europe/Amsterdam
     volumes:
       - bazarr-config:/config
       - torrent-downloads:/downloads
@@ -125,7 +125,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=UTC
+      - TZ=Europe/Amsterdam
     volumes:
       - prowlarr-config:/config
 
@@ -139,7 +139,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=UTC
+      - TZ=Europe/Amsterdam
     volumes:
       - jellyfin-config:/config
       - torrent-downloads:/data
@@ -159,6 +159,16 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
     network_mode: service:vpn
+
+    restart: unless-stopped
+
+  ddns:
+    container_name: ddns
+    build:
+      context: ddns
+    environment:
+      - DOMAIN=${DOMAIN:-http://sub.example.com}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-"a0we9fjaemRealSecretn0ae4jgf0aegicsn0"}
 
     restart: unless-stopped
 
