@@ -49,6 +49,7 @@ func main() {
 	}
 
 	currentRecord := recs[0]
+	lastIP = currentRecord.Content
 
 	for {
 		func() {
