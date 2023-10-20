@@ -7,9 +7,9 @@ services:
     cap_add:
       - NET_ADMIN
     environment:
-      - OPENVPN_USER=${OPENVPN_USER:-""}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-""}
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
+      - OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
       - VPN_PORT_FORWARDING=on
 
       # Servers with P2P

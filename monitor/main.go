@@ -96,7 +96,7 @@ func main() {
 	for {
 		log.Info("starting probe")
 		wg.Wait()
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Minute)
 		for _, service := range services {
 			log.Infof("probing %s, on port %s", service.name, *service.port)
 			containerID, err := getContainerID(ctx, cli, service.name)
