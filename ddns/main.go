@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cloudflare/cloudflare-go"
@@ -23,6 +24,11 @@ func main() {
 	api, err := cloudflare.NewWithAPIToken(cfToken)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "failed to create cloudflare api client"))
+	}
+
+	// The TLD package requires a domain with a scheme, otherwise outpot will be empty and no error will be returned
+	if !strings.HasPrefix(domain, "http://") || !strings.HasPrefix(domain, "https://") {
+		domain = "https://" + domain
 	}
 
 	u, err := tld.Parse(domain)
@@ -50,7 +56,12 @@ func main() {
 
 	currentRecord := recs[0]
 	lastIP = currentRecord.Content
+	log.Println("current ip is", lastIP)
+	log.Printf("target domain: %s\n", targetDomain)
+	log.Printf("main domain: %s\n", mainDomain)
+	log.Printf("zone id: %s\n", zoneID)
 
+	log.Println("start watching ip changes")
 	for {
 		func() {
 			ip, err := getMyIP()

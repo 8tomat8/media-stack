@@ -173,11 +173,10 @@ services:
     build:
       context: ddns
     environment:
-      - DOMAIN=${DOMAIN:-http://sub.example.com}
+      - DOMAIN=${DOMAIN:-sub.example.com}
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-"a0we9fjaemRealSecretn0ae4jgf0aegicsn0"}
 
     restart: unless-stopped
-
 
 volumes:
   torrent-downloads:
