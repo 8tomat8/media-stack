@@ -1,4 +1,13 @@
 version: "3.9"
+
+# I ❤️  OSS https://github.com/qdm12/gluetun/issues/641
+x-healthcheck: &healthcheck
+  healthcheck:
+    test: "curl -sf 1.1.1.1  || kill 1"
+    interval: 1m
+    timeout: 10s
+    retries: 1
+
 name: media-stack
 services:
   vpn:
@@ -12,9 +21,8 @@ services:
       - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
       - VPN_PORT_FORWARDING=on
 
-      # Servers with P2P
-      - SERVER_HOSTNAMES=node-nl-47.protonvpn.net,node-nl-01.protonvpn.net,node-nl-13.protonvpn.net
-      # Forces TCP
+      - SERVER_COUNTRIES=Netherlands
+      # Forces TCP as my home provider if FUCKING Ziggo!
       - VPN_ENDPOINT_PORT=443
 
     networks:
@@ -37,8 +45,9 @@ services:
 
   ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
   qbittorrent:
+    <<: *healthcheck
     container_name: qbittorrent
-    image: lscr.io/linuxserver/qbittorrent:4.5.4
+    image: lscr.io/linuxserver/qbittorrent:latest
 
     depends_on:
       vpn:
@@ -58,8 +67,9 @@ services:
     restart: "unless-stopped"
 
   radarr:
+    <<: *healthcheck
     container_name: radarr
-    image: lscr.io/linuxserver/radarr:4.7.5
+    image: lscr.io/linuxserver/radarr:5.2.6
     depends_on:
       vpn:
         condition: service_healthy
@@ -77,6 +87,7 @@ services:
     restart: "unless-stopped"
 
   sonarr:
+    <<: *healthcheck
     image: linuxserver/sonarr:4.0.0-develop
     container_name: sonarr
     depends_on:
@@ -97,6 +108,7 @@ services:
     restart: unless-stopped
 
   bazarr:
+    <<: *healthcheck
     container_name: bazarr
     image: lscr.io/linuxserver/bazarr:latest
     network_mode: service:vpn
@@ -111,8 +123,9 @@ services:
     restart: unless-stopped
 
   prowlarr:
+    <<: *healthcheck
     container_name: prowlarr
-    image: linuxserver/prowlarr:1.8.6
+    image: linuxserver/prowlarr:1.11.4
 
     depends_on:
       vpn:
@@ -132,7 +145,7 @@ services:
     restart: unless-stopped
 
   jellyfin:
-    image: linuxserver/jellyfin:10.8.10
+    image: linuxserver/jellyfin:10.8.13
     container_name: jellyfin
     networks:
       - mynetwork
@@ -143,24 +156,17 @@ services:
     volumes:
       - jellyfin-config:/config
       - torrent-downloads:/data
-    # devices:
-    #  - /dev/videoN:/dev/videoN # Mount GPU device
     ports:
       - 8096:8096
       - 7359:7359/udp
       - 8920:8920
     restart: unless-stopped
 
-  monitor:
-    container_name: monitor
-    build:
-      context: monitor
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-    network_mode: service:vpn
-
-    restart: unless-stopped
+    # These 2 allow me to use hardware video decoder. On your system the values will be different, so just comment it out
+    group_add:
+      - "989"
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
 
   ddns:
     container_name: ddns
@@ -172,35 +178,6 @@ services:
 
     restart: unless-stopped
 
-  # Doc: https://github.com/navilg/cleanmyarr
-  # cleanmyarr:
-  #   depends_on:
-  #     - radarr
-  #     - sonarr
-  #   image: linuxshots/cleanmyarr:0.8.1
-  #   container_name: cleanmyarr
-  #   networks:
-  #     - mynetwork
-  #   volumes:
-  #     - cleanmyarr-config:/config
-  # restart: unless-stopped
-  # environment:
-  # - CMA_MAINTENANCE_CYCLE=${CMA_MAINTENANCE_CYCLE:-""}
-  # - CMA_DELETE_AFTER_DAYS=${CMA_DELETE_AFTER_DAYS:-""}
-  # - CMA_ENABLE_EMAIL_NOTIFICATION=${CMA_ENABLE_EMAIL_NOTIFICATION:-""}
-  # - CMA_SMTP_USERNAME=${CMA_SMTP_USERNAME:-""}
-  # - CMA_SMTP_ENCODED_PASSWORD=${CMA_SMTP_ENCODED_PASSWORD:-""}
-  # - CMA_SMTP_TO_EMAILS=${CMA_SMTP_TO_EMAILS:-""}
-  # - CMA_ENABLE_GOTIFY_NOTIFICATION=${CMA_ENABLE_GOTIFY_NOTIFICATION:-""}
-  # - CMA_GOTIFY_URL=${CMA_GOTIFY_URL:-""}
-  # - CMA_GOTIFY_ENCODED_APP_TOKEN=${CMA_GOTIFY_ENCODED_APP_TOKEN:-""}
-  # - CMA_ENABLE_TELEGRAM_NOTIFICATION=${CMA_ENABLE_TELEGRAM_NOTIFICATION:-""}
-  # - CMA_TELEGRAM_ENCODED_BOT_TOKEN=${CMA_TELEGRAM_ENCODED_BOT_TOKEN:-""}
-  # - CMA_TELEGRAM_CHAT_ID=${CMA_TELEGRAM_CHAT_ID:-""}
-  # - CMA_MONITOR_RADARR=${CMA_MONITOR_RADARR:-""}
-  # - CMA_RADARR_URL=${CMA_RADARR_URL:-""}
-  # - CMA_RADARR_ENCODED_API_KEY=${CMA_RADARR_ENCODED_API_KEY:-""}
-  # - CMA_RADARR_ENABLE_NOTIFICATION=${CMA_RADARR_ENABLE_NOTIFICATION:-""}
 
 volumes:
   torrent-downloads:
