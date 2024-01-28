@@ -36,7 +36,7 @@ func main() {
 		log.Fatal(errors.Wrap(err, "failed to parse url"))
 	}
 	mainDomain := u.Domain + "." + u.TLD
-	targetDomain := u.Subdomain + "." + mainDomain
+	targetDomain := "*." + u.Subdomain + "." + mainDomain
 
 	zoneID, err := api.ZoneIDByName(mainDomain)
 	if err != nil {

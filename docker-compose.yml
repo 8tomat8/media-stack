@@ -20,6 +20,8 @@ services:
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=mynetwork
       - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
       - --certificatesresolvers.le.acme.email=${LE_EMAIL}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
@@ -40,10 +42,6 @@ services:
       - traefik.http.routers.traefik.tls.domains[0].main=${DOMAIN}
       - traefik.http.routers.traefik.middlewares=frontend
       - traefik.http.middlewares.frontend.basicAuth.users=${HASHED_ADMIN_USER_PASS}
-      # Service routes
-      - traefik.http.routers.qbittorrent.rule=Path(`/torrent`)
-      - traefik.http.routers.qbittorrent.service=vpn
-      - traefik.http.services.vpn.loadbalancer.server.port=5080
       # Generate HASHED_ADMIN_USER_PASS using below command
       # htpasswd -B -C 10 -c .htpasswd user1
       # cat .htpasswd | sed -e s/\\$/\\$\\$/g
@@ -84,19 +82,64 @@ services:
       - 8989:8989
       # bazarr ports
       - 6767:6767
-    restart: "unless-stopped"
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.frontend.basicAuth.users=${HASHED_ADMIN_USER_PASS}
+      # qBitTorrent
+      - traefik.http.routers.qbittorrent.tls=true
+      - traefik.http.routers.qbittorrent.tls.certresolver=le
+      - traefik.http.routers.qbittorrent.tls.domains[0].main=torrent.${DOMAIN}
+      - traefik.http.routers.qbittorrent.rule=Host(`torrent.${DOMAIN}`)
+      - traefik.http.routers.qbittorrent.service=qbittorrent
+      - traefik.http.services.qbittorrent.loadbalancer.server.port=5080
+      - traefik.http.routers.qbittorrent.middlewares=frontend
+      # Radarr
+      - traefik.http.routers.radarr.tls=true
+      - traefik.http.routers.radarr.tls.certresolver=le
+      - traefik.http.routers.radarr.tls.domains[0].main=radarr.${DOMAIN}
+      - traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)
+      - traefik.http.routers.radarr.service=radarr
+      - traefik.http.services.radarr.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr.middlewares=frontend
+      # Sonarr
+      - traefik.http.routers.sonarr.tls=true
+      - traefik.http.routers.sonarr.tls.certresolver=le
+      - traefik.http.routers.sonarr.tls.domains[0].main=sonarr.${DOMAIN}
+      - traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)
+      - traefik.http.routers.sonarr.service=sonarr
+      - traefik.http.services.sonarr.loadbalancer.server.port=8989
+      - traefik.http.routers.sonarr.middlewares=frontend
+      # Prowlarr
+      - traefik.http.routers.prowlarr.tls=true
+      - traefik.http.routers.prowlarr.tls.certresolver=le
+      - traefik.http.routers.prowlarr.tls.domains[0].main=prowlarr.${DOMAIN}
+      - traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)
+      - traefik.http.routers.prowlarr.service=prowlarr
+      - traefik.http.services.prowlarr.loadbalancer.server.port=9696
+      - traefik.http.routers.prowlarr.middlewares=frontend
+      # Bazarr
+      - traefik.http.routers.bazarr.tls=true
+      - traefik.http.routers.bazarr.tls.certresolver=le
+      - traefik.http.routers.bazarr.tls.domains[0].main=bazarr.${DOMAIN}
+      - traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN}`)
+      - traefik.http.routers.bazarr.service=bazarr
+      - traefik.http.services.bazarr.loadbalancer.server.port=6767
+      - traefik.http.routers.bazarr.middlewares=frontend
+    volumes:
+      - traefik-le:/letsencrypt
 
   ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
   qbittorrent:
     <<: *healthcheck
     container_name: qbittorrent
     image: lscr.io/linuxserver/qbittorrent:latest
+    network_mode: service:vpn
+    restart: unless-stopped
 
     depends_on:
       vpn:
         condition: service_healthy
-
-    network_mode: service:vpn
 
     environment:
       - PUID=1000
@@ -107,18 +150,18 @@ services:
       - qbittorrent-config:/config
       - torrent-downloads:/downloads
 
-    restart: "unless-stopped"
-
   radarr:
     <<: *healthcheck
     container_name: radarr
     image: lscr.io/linuxserver/radarr:5.2.6
+    network_mode: service:vpn
+    restart: unless-stopped
+
     depends_on:
       vpn:
         condition: service_healthy
       qbittorrent:
         condition: service_started
-    network_mode: service:vpn
 
     environment:
       - PUID=1000
@@ -127,19 +170,19 @@ services:
     volumes:
       - radarr-config:/config
       - torrent-downloads:/downloads
-    restart: "unless-stopped"
 
   sonarr:
     <<: *healthcheck
     image: linuxserver/sonarr:4.0.0-develop
     container_name: sonarr
+    network_mode: service:vpn
+    restart: unless-stopped
+
     depends_on:
       vpn:
         condition: service_healthy
       qbittorrent:
         condition: service_started
-
-    network_mode: service:vpn
 
     environment:
       - PUID=1000
@@ -148,13 +191,13 @@ services:
     volumes:
       - sonarr-config:/config
       - torrent-downloads:/downloads
-    restart: unless-stopped
 
   bazarr:
     <<: *healthcheck
     container_name: bazarr
     image: lscr.io/linuxserver/bazarr:latest
     network_mode: service:vpn
+    restart: unless-stopped
 
     environment:
       - PUID=1000
@@ -163,12 +206,13 @@ services:
     volumes:
       - bazarr-config:/config
       - torrent-downloads:/downloads
-    restart: unless-stopped
 
   prowlarr:
     <<: *healthcheck
     container_name: prowlarr
     image: linuxserver/prowlarr:1.11.4
+    network_mode: service:vpn
+    restart: unless-stopped
 
     depends_on:
       vpn:
@@ -176,16 +220,12 @@ services:
       qbittorrent:
         condition: service_started
 
-    network_mode: service:vpn
-
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Amsterdam
     volumes:
       - prowlarr-config:/config
-
-    restart: unless-stopped
 
   jellyfin:
     image: linuxserver/jellyfin:10.8.13
