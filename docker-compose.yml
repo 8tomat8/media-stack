@@ -1,5 +1,3 @@
-version: "3.9"
-
 # I ❤️  OSS https://github.com/qdm12/gluetun/issues/641
 x-healthcheck: &healthcheck
   healthcheck:
@@ -43,6 +41,10 @@ services:
       - 8989:8989
       # bazarr ports
       - 6767:6767
+      # jellyfin ports
+      - 8096:8096
+      - 7359:7359/udp
+      - 8920:8920
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -86,6 +88,13 @@ services:
       - traefik.http.routers.bazarr.service=bazarr
       - traefik.http.services.bazarr.loadbalancer.server.port=6767
       - traefik.http.routers.bazarr.middlewares=frontend
+      # Jellyfin
+      - traefik.http.routers.jellyfin.tls=true
+      - traefik.http.routers.jellyfin.tls.certresolver=le
+      - traefik.http.routers.jellyfin.tls.domains[0].main=jellyfin.ms.${DOMAIN}
+      - traefik.http.routers.jellyfin.rule=Host(`jellyfin.ms.${DOMAIN}`)
+      - traefik.http.routers.jellyfin.service=jellyfin
+      - traefik.http.services.jellyfin.loadbalancer.server.port=8096
     volumes:
       - traefik-le:/letsencrypt
 
@@ -188,10 +197,15 @@ services:
       - prowlarr-config:/config
 
   jellyfin:
-    image: linuxserver/jellyfin:10.9.2
+    image: jellyfin/jellyfin:10
     container_name: jellyfin
-    networks:
-      - mynetwork
+    network_mode: service:vpn
+    # networks:
+      # - mynetwork
+    # ports:
+    #   - 8096:8096
+    #   - 7359:7359/udp
+    #   - 8920:8920
     environment:
       - PUID=1000
       - PGID=1000
@@ -199,17 +213,13 @@ services:
     volumes:
       - jellyfin-config:/config
       - torrent-downloads:/data
-    ports:
-      - 8096:8096
-      - 7359:7359/udp
-      - 8920:8920
     restart: unless-stopped
 
     # These 2 allow me to use hardware video decoder. On your system the values will be different, so just comment it out
     group_add:
       - "989"
     devices:
-      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri:/dev/dri
 
 volumes:
   torrent-downloads:
