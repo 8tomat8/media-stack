@@ -43,6 +43,8 @@ services:
             - 8989:8989
             # bazarr ports
             - 6767:6767
+            # Jellyseerr ports
+            - 5055:5055
             # jellyfin ports
             - 8096:8096
             - 7359:7359/udp
@@ -90,6 +92,13 @@ services:
             - traefik.http.routers.bazarr.service=bazarr
             - traefik.http.services.bazarr.loadbalancer.server.port=6767
             - traefik.http.routers.bazarr.middlewares=frontend
+            # Jellyseerr
+            - traefik.http.routers.seerr.tls=true
+            - traefik.http.routers.seerr.tls.certresolver=le
+            - traefik.http.routers.seerr.tls.domains[0].main=seerr.ms.${DOMAIN}
+            - traefik.http.routers.seerr.rule=Host(`seerr.ms.${DOMAIN}`)
+            - traefik.http.routers.seerr.service=seerr
+            - traefik.http.services.seerr.loadbalancer.server.port=5055
             # Jellyfin
             - traefik.http.routers.jellyfin.tls=true
             - traefik.http.routers.jellyfin.tls.certresolver=le
@@ -198,16 +207,23 @@ services:
         volumes:
             - prowlarr-config:/config
 
+    seerr:
+        container_name: seerr
+        image: ghcr.io/seerr-team/seerr:develop
+        init: true
+        network_mode: service:vpn
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Amsterdam
+        volumes:
+            - seerr-config:/app/config
+        restart: unless-stopped
+
     jellyfin:
         image: jellyfin/jellyfin:10.11.4
         container_name: jellyfin
         network_mode: service:vpn
-        # networks:
-        # - mynetwork
-        # ports:
-        #   - 8096:8096
-        #   - 7359:7359/udp
-        #   - 8920:8920
         environment:
             - PUID=1000
             - PGID=1000
@@ -236,6 +252,12 @@ volumes:
             type: "none"
             o: "bind"
             device: "/home/8tomat8/media-stack/config/radarr"
+    seerr-config:
+        driver: local
+        driver_opts:
+            type: "none"
+            o: "bind"
+            device: "/home/8tomat8/media-stack/config/seerr"
     sonarr-config:
         driver: local
         driver_opts:
