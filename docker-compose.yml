@@ -22,6 +22,8 @@ services:
             - OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
             - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
             - VPN_PORT_FORWARDING=on
+            - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":$(cat /tmp/gluetun/forwarded_port),\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
+            - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
 
             - SERVER_COUNTRIES=Netherlands
             # Forces TCP as my home provider if FUCKING Ziggo!
