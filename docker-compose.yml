@@ -51,6 +51,8 @@ services:
             - 8096:8096
             - 7359:7359/udp
             - 8920:8920
+            # qui port
+            - 7476:7476
         restart: unless-stopped
         labels:
             - traefik.enable=true
@@ -108,6 +110,14 @@ services:
             - traefik.http.routers.jellyfin.rule=Host(`jellyfin.ms.${DOMAIN}`)
             - traefik.http.routers.jellyfin.service=jellyfin
             - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+            # qui
+            - traefik.http.routers.qui.tls=true
+            - traefik.http.routers.qui.tls.certresolver=le
+            - traefik.http.routers.qui.tls.domains[0].main=qui.ms.${DOMAIN}
+            - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
+            - traefik.http.routers.qui.service=qui
+            - traefik.http.services.qui.loadbalancer.server.port=7476
+            - traefik.http.routers.qui.middlewares=frontend
         volumes:
             - traefik-le:/letsencrypt
 
@@ -241,6 +251,24 @@ services:
         devices:
             - /dev/dri:/dev/dri
 
+    qui:
+        image: ghcr.io/autobrr/qui:latest
+        container_name: qui
+        network_mode: service:vpn
+        restart: unless-stopped
+        user: "1000:1000"
+        depends_on:
+            vpn:
+                condition: service_healthy
+            qbittorrent:
+                condition: service_started
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Europe/Amsterdam
+        volumes:
+            - qui-config:/config
+
 volumes:
     data:
         driver: local
@@ -290,6 +318,12 @@ volumes:
             type: "none"
             o: "bind"
             device: "/home/8tomat8/media-stack/config/qbittorrent"
+    qui-config:
+        driver: local
+        driver_opts:
+            type: "none"
+            o: "bind"
+            device: "/home/8tomat8/media-stack/config/qui"
     # cleanmyarr-config:
     traefik-le:
 
