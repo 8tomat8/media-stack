@@ -1,332 +1,331 @@
 # I ❤️  OSS https://github.com/qdm12/gluetun/issues/641
 x-healthcheck: &healthcheck
-    healthcheck:
-        test: "curl -sf 1.1.1.1  || kill 1"
-        interval: 1m
-        timeout: 10s
-        retries: 1
+  healthcheck:
+    test: "curl -sf 1.1.1.1  || kill 1"
+    interval: 1m
+    timeout: 10s
+    retries: 1
 
 name: media-stack
 services:
-    vpn:
-        container_name: vpn
-        image: qmcgaw/gluetun:v3.40.3
-        cap_add:
-            - NET_ADMIN
-        devices:
-            - /dev/net/tun:/dev/net/tun
-        env_file:
-            - .env
-        environment:
-            - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
-            - OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
-            - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
-            - VPN_PORT_FORWARDING=on
-            - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":$(cat /tmp/gluetun/forwarded_port),\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
-            - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
+  vpn:
+    container_name: vpn
+    image: qmcgaw/gluetun:v3.40.3
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env_file:
+      - .env
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
+      - OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
+      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
+      - VPN_PORT_FORWARDING=on
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":$(cat /tmp/gluetun/forwarded_port),\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
+      - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
 
-            - SERVER_COUNTRIES=Netherlands
-            # Forces TCP as my home provider if FUCKING Ziggo!
-            - VPN_ENDPOINT_PORT=443
+      - SERVER_COUNTRIES=Netherlands
+      # Forces TCP as my home provider if FUCKING Ziggo!
+      - VPN_ENDPOINT_PORT=443
 
-        networks:
-            - mynetwork
+    networks:
+      - mynetwork
 
-        ports:
-            # qbittorrent ports
-            - 5080:5080
-            - 6881:6881
-            - 6881:6881/udp
-            # prowlarr ports
-            - 9696:9696
-            # sonarr ports
-            - 7878:7878
-            # radarr ports
-            - 8989:8989
-            # bazarr ports
-            - 6767:6767
-            # Jellyseerr ports
-            - 5055:5055
-            # jellyfin ports
-            - 8096:8096
-            - 7359:7359/udp
-            - 8920:8920
-            # qui port
-            - 7476:7476
-        restart: unless-stopped
-        labels:
-            - traefik.enable=true
-            # qBitTorrent
-            - traefik.http.routers.qbittorrent.tls=true
-            - traefik.http.routers.qbittorrent.tls.certresolver=le
-            - traefik.http.routers.qbittorrent.tls.domains[0].main=torrent.ms.${DOMAIN}
-            - traefik.http.routers.qbittorrent.rule=Host(`torrent.ms.${DOMAIN}`)
-            - traefik.http.routers.qbittorrent.service=qbittorrent
-            - traefik.http.services.qbittorrent.loadbalancer.server.port=5080
-            - traefik.http.routers.qbittorrent.middlewares=frontend
-            # Radarr
-            - traefik.http.routers.radarr.tls=true
-            - traefik.http.routers.radarr.tls.certresolver=le
-            - traefik.http.routers.radarr.tls.domains[0].main=radarr.ms.${DOMAIN}
-            - traefik.http.routers.radarr.rule=Host(`radarr.ms.${DOMAIN}`)
-            - traefik.http.routers.radarr.service=radarr
-            - traefik.http.services.radarr.loadbalancer.server.port=7878
-            - traefik.http.routers.radarr.middlewares=frontend
-            # Sonarr
-            - traefik.http.routers.sonarr.tls=true
-            - traefik.http.routers.sonarr.tls.certresolver=le
-            - traefik.http.routers.sonarr.tls.domains[0].main=sonarr.ms.${DOMAIN}
-            - traefik.http.routers.sonarr.rule=Host(`sonarr.ms.${DOMAIN}`)
-            - traefik.http.routers.sonarr.service=sonarr
-            - traefik.http.services.sonarr.loadbalancer.server.port=8989
-            - traefik.http.routers.sonarr.middlewares=frontend
-            # Prowlarr
-            - traefik.http.routers.prowlarr.tls=true
-            - traefik.http.routers.prowlarr.tls.certresolver=le
-            - traefik.http.routers.prowlarr.tls.domains[0].main=prowlarr.ms.${DOMAIN}
-            - traefik.http.routers.prowlarr.rule=Host(`prowlarr.ms.${DOMAIN}`)
-            - traefik.http.routers.prowlarr.service=prowlarr
-            - traefik.http.services.prowlarr.loadbalancer.server.port=9696
-            - traefik.http.routers.prowlarr.middlewares=frontend
-            # Bazarr
-            - traefik.http.routers.bazarr.tls=true
-            - traefik.http.routers.bazarr.tls.certresolver=le
-            - traefik.http.routers.bazarr.tls.domains[0].main=bazarr.ms.${DOMAIN}
-            - traefik.http.routers.bazarr.rule=Host(`bazarr.ms.${DOMAIN}`)
-            - traefik.http.routers.bazarr.service=bazarr
-            - traefik.http.services.bazarr.loadbalancer.server.port=6767
-            - traefik.http.routers.bazarr.middlewares=frontend
-            # Jellyseerr
-            - traefik.http.routers.seerr.tls=true
-            - traefik.http.routers.seerr.tls.certresolver=le
-            - traefik.http.routers.seerr.tls.domains[0].main=seerr.ms.${DOMAIN}
-            - traefik.http.routers.seerr.rule=Host(`seerr.ms.${DOMAIN}`)
-            - traefik.http.routers.seerr.service=seerr
-            - traefik.http.services.seerr.loadbalancer.server.port=5055
-            # Jellyfin
-            - traefik.http.routers.jellyfin.tls=true
-            - traefik.http.routers.jellyfin.tls.certresolver=le
-            - traefik.http.routers.jellyfin.tls.domains[0].main=jellyfin.ms.${DOMAIN}
-            - traefik.http.routers.jellyfin.rule=Host(`jellyfin.ms.${DOMAIN}`)
-            - traefik.http.routers.jellyfin.service=jellyfin
-            - traefik.http.services.jellyfin.loadbalancer.server.port=8096
-            # qui
-            - traefik.http.routers.qui.tls=true
-            - traefik.http.routers.qui.tls.certresolver=le
-            - traefik.http.routers.qui.tls.domains[0].main=qui.ms.${DOMAIN}
-            - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
-            - traefik.http.routers.qui.service=qui
-            - traefik.http.services.qui.loadbalancer.server.port=7476
-            - traefik.http.routers.qui.middlewares=frontend
-        volumes:
-            - traefik-le:/letsencrypt
+    ports:
+      # qbittorrent ports
+      - 5080:5080
+      - 6881:6881
+      - 6881:6881/udp
+      # prowlarr ports
+      - 9696:9696
+      # sonarr ports
+      - 7878:7878
+      # radarr ports
+      - 8989:8989
+      # bazarr ports
+      - 6767:6767
+      # Jellyseerr ports
+      - 5055:5055
+      # jellyfin ports
+      - 8096:8096
+      - 7359:7359/udp
+      - 8920:8920
+      # qui port
+      - 7476:7476
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      # qBitTorrent
+      - traefik.http.routers.qbittorrent.tls=true
+      - traefik.http.routers.qbittorrent.tls.certresolver=le
+      - traefik.http.routers.qbittorrent.tls.domains[0].main=torrent.ms.${DOMAIN}
+      - traefik.http.routers.qbittorrent.rule=Host(`torrent.ms.${DOMAIN}`)
+      - traefik.http.routers.qbittorrent.service=qbittorrent
+      - traefik.http.services.qbittorrent.loadbalancer.server.port=5080
+      - traefik.http.routers.qbittorrent.middlewares=frontend
+      # Radarr
+      - traefik.http.routers.radarr.tls=true
+      - traefik.http.routers.radarr.tls.certresolver=le
+      - traefik.http.routers.radarr.tls.domains[0].main=radarr.ms.${DOMAIN}
+      - traefik.http.routers.radarr.rule=Host(`radarr.ms.${DOMAIN}`)
+      - traefik.http.routers.radarr.service=radarr
+      - traefik.http.services.radarr.loadbalancer.server.port=7878
+      - traefik.http.routers.radarr.middlewares=frontend
+      # Sonarr
+      - traefik.http.routers.sonarr.tls=true
+      - traefik.http.routers.sonarr.tls.certresolver=le
+      - traefik.http.routers.sonarr.tls.domains[0].main=sonarr.ms.${DOMAIN}
+      - traefik.http.routers.sonarr.rule=Host(`sonarr.ms.${DOMAIN}`)
+      - traefik.http.routers.sonarr.service=sonarr
+      - traefik.http.services.sonarr.loadbalancer.server.port=8989
+      - traefik.http.routers.sonarr.middlewares=frontend
+      # Prowlarr
+      - traefik.http.routers.prowlarr.tls=true
+      - traefik.http.routers.prowlarr.tls.certresolver=le
+      - traefik.http.routers.prowlarr.tls.domains[0].main=prowlarr.ms.${DOMAIN}
+      - traefik.http.routers.prowlarr.rule=Host(`prowlarr.ms.${DOMAIN}`)
+      - traefik.http.routers.prowlarr.service=prowlarr
+      - traefik.http.services.prowlarr.loadbalancer.server.port=9696
+      - traefik.http.routers.prowlarr.middlewares=frontend
+      # Bazarr
+      - traefik.http.routers.bazarr.tls=true
+      - traefik.http.routers.bazarr.tls.certresolver=le
+      - traefik.http.routers.bazarr.tls.domains[0].main=bazarr.ms.${DOMAIN}
+      - traefik.http.routers.bazarr.rule=Host(`bazarr.ms.${DOMAIN}`)
+      - traefik.http.routers.bazarr.service=bazarr
+      - traefik.http.services.bazarr.loadbalancer.server.port=6767
+      - traefik.http.routers.bazarr.middlewares=frontend
+      # Jellyseerr
+      - traefik.http.routers.seerr.tls=true
+      - traefik.http.routers.seerr.tls.certresolver=le
+      - traefik.http.routers.seerr.tls.domains[0].main=seerr.ms.${DOMAIN}
+      - traefik.http.routers.seerr.rule=Host(`seerr.ms.${DOMAIN}`)
+      - traefik.http.routers.seerr.service=seerr
+      - traefik.http.services.seerr.loadbalancer.server.port=5055
+      # Jellyfin
+      - traefik.http.routers.jellyfin.tls=true
+      - traefik.http.routers.jellyfin.tls.certresolver=le
+      - traefik.http.routers.jellyfin.tls.domains[0].main=jellyfin.ms.${DOMAIN}
+      - traefik.http.routers.jellyfin.rule=Host(`jellyfin.ms.${DOMAIN}`)
+      - traefik.http.routers.jellyfin.service=jellyfin
+      - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+      # qui
+      - traefik.http.routers.qui.tls=true
+      - traefik.http.routers.qui.tls.certresolver=le
+      - traefik.http.routers.qui.tls.domains[0].main=qui.ms.${DOMAIN}
+      - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
+      - traefik.http.routers.qui.service=qui
+      - traefik.http.services.qui.loadbalancer.server.port=7476
+      - traefik.http.routers.qui.middlewares=frontend
+    volumes:
+      - traefik-le:/letsencrypt
 
-    ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
-    qbittorrent:
-        <<: *healthcheck
-        container_name: qbittorrent
-        image: lscr.io/linuxserver/qbittorrent:latest
-        network_mode: service:vpn
-        restart: unless-stopped
+  ## Default credentials of qBittorrent - Username: admin password: adminadmin ##
+  qbittorrent:
+    <<: *healthcheck
+    container_name: qbittorrent
+    image: lscr.io/linuxserver/qbittorrent:latest
+    network_mode: service:vpn
+    restart: unless-stopped
 
-        depends_on:
-            vpn:
-                condition: service_healthy
+    depends_on:
+      vpn:
+        condition: service_healthy
 
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-            - WEBUI_PORT=5080
-        volumes:
-            - qbittorrent-config:/config
-            - data:/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+      - WEBUI_PORT=5080
+    volumes:
+      - qbittorrent-config:/config
+      - data:/data
 
-    radarr:
-        <<: *healthcheck
-        container_name: radarr
-        image: lscr.io/linuxserver/radarr:6.0.4
-        network_mode: service:vpn
-        restart: unless-stopped
+  radarr:
+    <<: *healthcheck
+    container_name: radarr
+    image: lscr.io/linuxserver/radarr:6.0.4
+    network_mode: service:vpn
+    restart: unless-stopped
 
-        depends_on:
-            vpn:
-                condition: service_healthy
-            qbittorrent:
-                condition: service_started
+    depends_on:
+      vpn:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
 
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - radarr-config:/config
-            - data:/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - radarr-config:/config
+      - data:/data
 
-    sonarr:
-        <<: *healthcheck
-        image: linuxserver/sonarr:4.0.16
-        container_name: sonarr
-        network_mode: service:vpn
-        restart: unless-stopped
+  sonarr:
+    <<: *healthcheck
+    image: linuxserver/sonarr:4.0.16
+    container_name: sonarr
+    network_mode: service:vpn
+    restart: unless-stopped
 
-        depends_on:
-            vpn:
-                condition: service_healthy
-            qbittorrent:
-                condition: service_started
+    depends_on:
+      vpn:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
 
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - sonarr-config:/config
-            - data:/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - sonarr-config:/config
+      - data:/data
 
-    bazarr:
-        <<: *healthcheck
-        container_name: bazarr
-        image: lscr.io/linuxserver/bazarr:latest
-        network_mode: service:vpn
-        restart: unless-stopped
+  bazarr:
+    <<: *healthcheck
+    container_name: bazarr
+    image: lscr.io/linuxserver/bazarr:latest
+    network_mode: service:vpn
+    restart: unless-stopped
 
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - bazarr-config:/config
-            - data:/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - bazarr-config:/config
+      - data:/data
 
-    prowlarr:
-        <<: *healthcheck
-        container_name: prowlarr
-        image: linuxserver/prowlarr:2.3.0
-        network_mode: service:vpn
-        restart: unless-stopped
+  prowlarr:
+    <<: *healthcheck
+    container_name: prowlarr
+    image: linuxserver/prowlarr:2.3.0
+    network_mode: service:vpn
+    restart: unless-stopped
 
-        depends_on:
-            vpn:
-                condition: service_healthy
-            qbittorrent:
-                condition: service_started
+    depends_on:
+      vpn:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
 
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - prowlarr-config:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - prowlarr-config:/config
 
-    seerr:
-        container_name: seerr
-        image: ghcr.io/seerr-team/seerr:develop
-        init: true
-        network_mode: service:vpn
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - seerr-config:/app/config
-        restart: unless-stopped
+  seerr:
+    container_name: seerr
+    image: ghcr.io/seerr-team/seerr:develop
+    init: true
+    network_mode: service:vpn
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - seerr-config:/app/config
+    restart: unless-stopped
 
-    jellyfin:
-        image: jellyfin/jellyfin:10.11.4
-        container_name: jellyfin
-        network_mode: service:vpn
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - jellyfin-config:/config
-            - data:/data
-        restart: unless-stopped
+  jellyfin:
+    image: jellyfin/jellyfin:10.11.4
+    container_name: jellyfin
+    network_mode: service:vpn
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - jellyfin-config:/config
+      - data:/data
+    restart: unless-stopped
 
-        # These 2 allow me to use hardware video decoder. On your system the values will be different, so just comment it out
-        group_add:
-            - "989"
-        devices:
-            - /dev/dri:/dev/dri
+    # These 2 allow me to use hardware video decoder. On your system the values will be different, so just comment it out
+    group_add:
+      - "989"
+    devices:
+      - /dev/dri:/dev/dri
 
-    qui:
-        image: ghcr.io/autobrr/qui:latest
-        container_name: qui
-        network_mode: service:vpn
-        restart: unless-stopped
-        user: "1000:1000"
-        depends_on:
-            vpn:
-                condition: service_healthy
-            qbittorrent:
-                condition: service_started
-        environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=Europe/Amsterdam
-        volumes:
-            - qui-config:/config
+  qui:
+    image: ghcr.io/autobrr/qui:latest
+    container_name: qui
+    network_mode: service:vpn
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      vpn:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+    volumes:
+      - qui-config:/config
 
 volumes:
-    data:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/volume2/cinema"
-    radarr-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/radarr"
-    seerr-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/seerr"
-    sonarr-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/sonarr"
-    bazarr-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/bazarr"
-    prowlarr-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/prowlarr"
-    jellyfin-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/jellyfin"
-    qbittorrent-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/qbittorrent"
-    qui-config:
-        driver: local
-        driver_opts:
-            type: "none"
-            o: "bind"
-            device: "/home/8tomat8/media-stack/config/qui"
-    # cleanmyarr-config:
-    traefik-le:
+  data:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/volume2/cinema"
+  radarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/radarr"
+  seerr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/seerr"
+  sonarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/sonarr"
+  bazarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/bazarr"
+  prowlarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/prowlarr"
+  jellyfin-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/jellyfin"
+  qbittorrent-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/qbittorrent"
+  qui-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/qui"
+  traefik-le:
 
 networks:
-    mynetwork:
-        external: true
+  mynetwork:
+    external: true
