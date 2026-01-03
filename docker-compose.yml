@@ -117,7 +117,6 @@ services:
       - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
       - traefik.http.routers.qui.service=qui
       - traefik.http.services.qui.loadbalancer.server.port=7476
-      - traefik.http.routers.qui.middlewares=oidc-auth@file
     volumes:
       - traefik-le:/letsencrypt
 
@@ -266,6 +265,12 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Amsterdam
+      - QUI__OIDC_ENABLED=true
+      - QUI__OIDC_ISSUER=${QUI__OIDC_ISSUER:-"<EMPTY!>"}
+      - QUI__OIDC_CLIENT_ID=${QUI__OIDC_CLIENT_ID:-"<EMPTY!>"}
+      - QUI__OIDC_CLIENT_SECRET=${QUI__OIDC_CLIENT_SECRET:-"<EMPTY!>"}
+      - QUI__OIDC_REDIRECT_URL=${QUI__OIDC_REDIRECT_URL:-"<EMPTY!>"}
+      - QUI__OIDC_DISABLE_BUILT_IN_LOGIN=true
     volumes:
       - qui-config:/config
 
