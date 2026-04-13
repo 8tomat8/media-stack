@@ -53,6 +53,8 @@ services:
       - 8920:8920
       # qui port
       - 7476:7476
+      # livrarr port
+      - 8789:8789
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -117,6 +119,13 @@ services:
       - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
       - traefik.http.routers.qui.service=qui
       - traefik.http.services.qui.loadbalancer.server.port=7476
+      # Livrarr
+      - traefik.http.routers.livrarr.tls=true
+      - traefik.http.routers.livrarr.tls.certresolver=le
+      - traefik.http.routers.livrarr.rule=Host(`library.${DOMAIN}`)
+      - traefik.http.routers.livrarr.service=livrarr
+      - traefik.http.services.livrarr.loadbalancer.server.port=8789
+      - traefik.http.routers.livrarr.middlewares=oidc-auth@file
     volumes:
       - traefik-le:/letsencrypt
 
@@ -217,6 +226,24 @@ services:
       - TZ=Europe/Amsterdam
     volumes:
       - prowlarr-config:/config
+
+  livrarr:
+    <<: *healthcheck
+    container_name: livrarr
+    image: ghcr.io/kkodecs/livrarr:0.1.0-alpha2
+    network_mode: service:vpn
+    restart: unless-stopped
+
+    depends_on:
+      vpn:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+
+    volumes:
+      - livrarr-config:/config
+      - library:/books
+      - data:/downloads:ro
 
   seerr:
     container_name: seerr
@@ -323,6 +350,18 @@ volumes:
       type: "none"
       o: "bind"
       device: "/home/8tomat8/media-stack/config/qbittorrent"
+  livrarr-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/livrarr"
+  library:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/volume2/library"
   qui-config:
     driver: local
     driver_opts:
