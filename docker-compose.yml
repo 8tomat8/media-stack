@@ -35,6 +35,8 @@ services:
     ports:
       # qbittorrent ports
       - 5080:5080
+      # mousehole port
+      - 5010:5010
       - 6881:6881
       - 6881:6881/udp
       # prowlarr ports
@@ -66,6 +68,14 @@ services:
       - traefik.http.routers.qbittorrent.service=qbittorrent
       - traefik.http.services.qbittorrent.loadbalancer.server.port=5080
       - traefik.http.routers.qbittorrent.middlewares=oidc-auth@file
+      # Mousehole
+      - traefik.http.routers.mousehole.tls=true
+      - traefik.http.routers.mousehole.tls.certresolver=le
+      - traefik.http.routers.mousehole.tls.domains[0].main=mam.ms.${DOMAIN}
+      - traefik.http.routers.mousehole.rule=Host(`mam.ms.${DOMAIN}`)
+      - traefik.http.routers.mousehole.service=mousehole
+      - traefik.http.services.mousehole.loadbalancer.server.port=5010
+      - traefik.http.routers.mousehole.middlewares=oidc-auth@file
       # Radarr
       - traefik.http.routers.radarr.tls=true
       - traefik.http.routers.radarr.tls.certresolver=le
@@ -150,6 +160,29 @@ services:
       - qbittorrent-config:/config
       - data:/data
 
+  mousehole:
+    container_name: mousehole
+    image: tmmrtn/mousehole:latest
+    network_mode: service:vpn
+    restart: unless-stopped
+
+    depends_on:
+      vpn:
+        condition: service_healthy
+
+    environment:
+      - TZ=Europe/Amsterdam
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O- http://localhost:5010/ok >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    volumes:
+      - mousehole-config:/srv/mousehole
+
   radarr:
     <<: *healthcheck
     container_name: radarr
@@ -228,7 +261,6 @@ services:
       - prowlarr-config:/config
 
   livrarr:
-    <<: *healthcheck
     container_name: livrarr
     image: ghcr.io/kkodecs/livrarr:0.1.0-alpha2
     network_mode: service:vpn
@@ -239,6 +271,13 @@ services:
         condition: service_healthy
       qbittorrent:
         condition: service_started
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8789/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
     volumes:
       - livrarr-config:/config
@@ -350,6 +389,12 @@ volumes:
       type: "none"
       o: "bind"
       device: "/home/8tomat8/media-stack/config/qbittorrent"
+  mousehole-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/mousehole"
   livrarr-config:
     driver: local
     driver_opts:
