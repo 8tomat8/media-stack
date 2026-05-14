@@ -339,6 +339,7 @@ services:
       - QUI__OIDC_DISABLE_BUILT_IN_LOGIN=true
     volumes:
       - qui-config:/config
+      - data:/data
 
 volumes:
   data:
