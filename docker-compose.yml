@@ -19,15 +19,18 @@ services:
       - .env
     environment:
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
-      - OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
+      - VPN_TYPE=wireguard
+      #- OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
+      #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
+      - WIREGUARD_PRIVATE_KEY=${WG_PRIV_KEY:-"<secret>"}
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":$(cat /tmp/gluetun/forwarded_port),\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
       - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
 
       - SERVER_COUNTRIES=Netherlands
+      #- SERVER_CITIES=Amsterdam
       # Forces TCP as my home provider if FUCKING Ziggo!
-      - VPN_ENDPOINT_PORT=443
+      #- VPN_ENDPOINT_PORT=443
 
     networks:
       - mynetwork
