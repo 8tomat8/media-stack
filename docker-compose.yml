@@ -58,8 +58,8 @@ services:
       - 8920:8920
       # qui port
       - 7476:7476
-      # livrarr port
-      - 8789:8789
+      # librarr port
+      - 5050:5050
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -132,13 +132,12 @@ services:
       - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
       - traefik.http.routers.qui.service=qui
       - traefik.http.services.qui.loadbalancer.server.port=7476
-      # Livrarr
-      - traefik.http.routers.livrarr.tls=true
-      - traefik.http.routers.livrarr.tls.certresolver=le
-      - traefik.http.routers.livrarr.rule=Host(`library.${DOMAIN}`)
-      - traefik.http.routers.livrarr.service=livrarr
-      - traefik.http.services.livrarr.loadbalancer.server.port=8789
-      - traefik.http.routers.livrarr.middlewares=oidc-auth@file
+      # Librarr
+      - traefik.http.routers.librarr.tls=true
+      - traefik.http.routers.librarr.tls.certresolver=le
+      - traefik.http.routers.librarr.rule=Host(`library.${DOMAIN}`)
+      - traefik.http.routers.librarr.service=librarr
+      - traefik.http.services.librarr.loadbalancer.server.port=5050
     volumes:
       - traefik-le:/letsencrypt
 
@@ -263,9 +262,9 @@ services:
     volumes:
       - prowlarr-config:/config
 
-  livrarr:
-    container_name: livrarr
-    image: ghcr.io/kkodecs/livrarr:0.1.0-alpha2
+  librarr:
+    container_name: librarr
+    image: ghcr.io/jeremiahm37/librarr:latest
     network_mode: service:vpn
     restart: unless-stopped
 
@@ -275,15 +274,36 @@ services:
       qbittorrent:
         condition: service_started
 
+    env_file:
+      - .env
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Amsterdam
+      - LIBRARR_PORT=5050
+      - LIBRARR_DB_PATH=/data/librarr.db
+      - EBOOK_DIR=/books/ebooks
+      - AUDIOBOOK_DIR=/books/audiobooks
+      - MANGADEX_ENABLED=false
+      # OIDC (PocketID) — librarr handles SSO natively; traefik forward-auth middleware removed above.
+      - OIDC_ENABLED=true
+      - OIDC_PROVIDER_NAME=PocketID
+      - OIDC_ISSUER=${LIBRARR_OIDC_ISSUER:-"<EMPTY!>"}
+      - OIDC_CLIENT_ID=${LIBRARR_OIDC_CLIENT_ID:-"<EMPTY!>"}
+      - OIDC_CLIENT_SECRET=${LIBRARR_OIDC_CLIENT_SECRET:-"<EMPTY!>"}
+      - OIDC_REDIRECT_URI=${LIBRARR_OIDC_REDIRECT_URI:-https://library.${DOMAIN}/auth/oidc/callback}
+      - OIDC_AUTO_CREATE_USERS=true
+      - OIDC_DEFAULT_ROLE=${LIBRARR_OIDC_DEFAULT_ROLE:-user}
+
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8789/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5050/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
 
     volumes:
-      - livrarr-config:/config
+      - librarr-data:/data
       - library:/books
       - data:/downloads:ro
 
@@ -399,12 +419,12 @@ volumes:
       type: "none"
       o: "bind"
       device: "/home/8tomat8/media-stack/config/mousehole"
-  livrarr-config:
+  librarr-data:
     driver: local
     driver_opts:
       type: "none"
       o: "bind"
-      device: "/home/8tomat8/media-stack/config/livrarr"
+      device: "/home/8tomat8/media-stack/config/librarr"
   library:
     driver: local
     driver_opts:
