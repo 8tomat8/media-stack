@@ -10,7 +10,7 @@ name: media-stack
 services:
   vpn:
     container_name: vpn
-    image: qmcgaw/gluetun:v3.40.3
+    image: qmcgaw/gluetun:v3.41.1
     cap_add:
       - NET_ADMIN
     devices:
@@ -208,7 +208,7 @@ services:
 
   sonarr:
     <<: *healthcheck
-    image: linuxserver/sonarr:4.0.16
+    image: linuxserver/sonarr:4.0.17
     container_name: sonarr
     network_mode: service:vpn
     restart: unless-stopped
@@ -309,7 +309,7 @@ services:
 
   seerr:
     container_name: seerr
-    image: ghcr.io/seerr-team/seerr:develop
+    image: ghcr.io/seerr-team/seerr:v3.2.0
     init: true
     network_mode: service:vpn
     environment:
