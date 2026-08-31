@@ -280,6 +280,7 @@ services:
       - BINDERY_LIBRARY_DIR=/books/ebooks
       - BINDERY_AUDIOBOOK_DIR=/books/audiobooks
       - BINDERY_DOWNLOAD_DIR=/data
+      - BINDERY_DOWNLOAD_ALLOW_LOOPBACK=1
       - BINDERY_OIDC_REDIRECT_BASE_URL=https://library.${DOMAIN}
       - BINDERY_TRUSTED_PROXY=172.16.0.0/12
       - BINDERY_LOCAL_AUTH_ENABLED=false
