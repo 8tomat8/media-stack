@@ -58,8 +58,6 @@ services:
       - 8920:8920
       # qui port
       - 7476:7476
-      # librarr port
-      - 5050:5050
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -132,12 +130,12 @@ services:
       - traefik.http.routers.qui.rule=Host(`qui.ms.${DOMAIN}`)
       - traefik.http.routers.qui.service=qui
       - traefik.http.services.qui.loadbalancer.server.port=7476
-      # Librarr
-      - traefik.http.routers.librarr.tls=true
-      - traefik.http.routers.librarr.tls.certresolver=le
-      - traefik.http.routers.librarr.rule=Host(`library.${DOMAIN}`)
-      - traefik.http.routers.librarr.service=librarr
-      - traefik.http.services.librarr.loadbalancer.server.port=5050
+      # Bindery — native OIDC (PocketID) + native OPDS Basic auth; no edge auth middleware
+      - traefik.http.routers.bindery.tls=true
+      - traefik.http.routers.bindery.tls.certresolver=le
+      - traefik.http.routers.bindery.rule=Host(`library.${DOMAIN}`)
+      - traefik.http.routers.bindery.service=bindery
+      - traefik.http.services.bindery.loadbalancer.server.port=8787
     volumes:
       - traefik-le:/letsencrypt
 
@@ -262,11 +260,12 @@ services:
     volumes:
       - prowlarr-config:/config
 
-  librarr:
-    container_name: librarr
-    image: ghcr.io/jeremiahm37/librarr:latest
+  bindery:
+    container_name: bindery
+    image: ghcr.io/vavallee/bindery:latest
     network_mode: service:vpn
     restart: unless-stopped
+    user: "1000:1000"
 
     depends_on:
       vpn:
@@ -274,38 +273,21 @@ services:
       qbittorrent:
         condition: service_started
 
-    env_file:
-      - .env
     environment:
-      - PUID=1000
-      - PGID=1000
+      - BINDERY_PUID=1000
+      - BINDERY_PGID=1000
       - TZ=Europe/Amsterdam
-      - LIBRARR_PORT=5050
-      - LIBRARR_DB_PATH=/data/librarr.db
-      - EBOOK_DIR=/books/ebooks
-      - AUDIOBOOK_DIR=/books/audiobooks
-      - MANGADEX_ENABLED=false
-      # OIDC (PocketID) — librarr handles SSO natively; traefik forward-auth middleware removed above.
-      - OIDC_ENABLED=true
-      - OIDC_PROVIDER_NAME=PocketID
-      - OIDC_ISSUER=${LIBRARR_OIDC_ISSUER:-"<EMPTY!>"}
-      - OIDC_CLIENT_ID=${LIBRARR_OIDC_CLIENT_ID:-"<EMPTY!>"}
-      - OIDC_CLIENT_SECRET=${LIBRARR_OIDC_CLIENT_SECRET:-"<EMPTY!>"}
-      - OIDC_REDIRECT_URI=${LIBRARR_OIDC_REDIRECT_URI:-https://library.${DOMAIN}/auth/oidc/callback}
-      - OIDC_AUTO_CREATE_USERS=true
-      - OIDC_DEFAULT_ROLE=${LIBRARR_OIDC_DEFAULT_ROLE:-user}
-
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5050/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - BINDERY_LIBRARY_DIR=/books/ebooks
+      - BINDERY_AUDIOBOOK_DIR=/books/audiobooks
+      - BINDERY_DOWNLOAD_DIR=/data
+      - BINDERY_OIDC_REDIRECT_BASE_URL=https://library.${DOMAIN}
+      - BINDERY_OIDC_DEFAULT_ROLE=admin
+      - BINDERY_TRUSTED_PROXY=172.16.0.0/12
 
     volumes:
-      - librarr-data:/data
+      - bindery-config:/config
       - library:/books
-      - data:/downloads:ro
+      - data:/data:ro
 
   seerr:
     container_name: seerr
@@ -419,12 +401,12 @@ volumes:
       type: "none"
       o: "bind"
       device: "/home/8tomat8/media-stack/config/mousehole"
-  librarr-data:
+  bindery-config:
     driver: local
     driver_opts:
       type: "none"
       o: "bind"
-      device: "/home/8tomat8/media-stack/config/librarr"
+      device: "/home/8tomat8/media-stack/config/bindery"
   library:
     driver: local
     driver_opts:
