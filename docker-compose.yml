@@ -281,8 +281,9 @@ services:
       - BINDERY_AUDIOBOOK_DIR=/books/audiobooks
       - BINDERY_DOWNLOAD_DIR=/data
       - BINDERY_OIDC_REDIRECT_BASE_URL=https://library.${DOMAIN}
-      - BINDERY_OIDC_DEFAULT_ROLE=admin
       - BINDERY_TRUSTED_PROXY=172.16.0.0/12
+      - BINDERY_LOCAL_AUTH_ENABLED=false
+
 
     volumes:
       - bindery-config:/config
