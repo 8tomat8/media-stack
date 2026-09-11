@@ -305,7 +305,7 @@ services:
     restart: unless-stopped
 
   jellyfin:
-    image: jellyfin/jellyfin:10.11.11
+    image: jellyfin/jellyfin:12.0
     container_name: jellyfin
     network_mode: service:vpn
     environment:
