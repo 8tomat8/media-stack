@@ -186,7 +186,7 @@ services:
   radarr:
     <<: *healthcheck
     container_name: radarr
-    image: lscr.io/linuxserver/radarr:6.0.4
+    image: lscr.io/linuxserver/radarr:6.3.0
     network_mode: service:vpn
     restart: unless-stopped
 
@@ -206,7 +206,7 @@ services:
 
   sonarr:
     <<: *healthcheck
-    image: linuxserver/sonarr:4.0.17
+    image: linuxserver/sonarr:4.0.19
     container_name: sonarr
     network_mode: service:vpn
     restart: unless-stopped
@@ -243,7 +243,7 @@ services:
   prowlarr:
     <<: *healthcheck
     container_name: prowlarr
-    image: linuxserver/prowlarr:2.3.0
+    image: linuxserver/prowlarr:2.5.2
     network_mode: service:vpn
     restart: unless-stopped
 
