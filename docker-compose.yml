@@ -159,6 +159,9 @@ services:
     volumes:
       - qbittorrent-config:/config
       - data:/data
+      # NVMe staging for in-progress downloads; UGOS shared folder with 1 TB quota.
+      # RAID5 + dm-cache can't absorb new random writes; finished torrents move to /data in one sequential copy.
+      - /volume1/torrents-incomplete:/incomplete
 
   mousehole:
     container_name: mousehole
