@@ -10,7 +10,7 @@ name: media-stack
 services:
   vpn:
     container_name: vpn
-    image: qmcgaw/gluetun:v3.41.1
+    image: qmcgaw/gluetun:v3.41.3
     cap_add:
       - NET_ADMIN
     devices:
@@ -25,7 +25,7 @@ services:
       - WIREGUARD_PRIVATE_KEY=${WG_PRIV_KEY:-"<secret>"}
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":$(cat /tmp/gluetun/forwarded_port),\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
-      - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
+      - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
 
       - SERVER_COUNTRIES=Netherlands
       #- SERVER_CITIES=Amsterdam
