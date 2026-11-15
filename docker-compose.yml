@@ -10,7 +10,8 @@ name: media-stack
 services:
   vpn:
     container_name: vpn
-    image: qmcgaw/gluetun:v3.41.3
+    # latest @ ded7fd05 (2026-09-26): pinned for #3464 natpmp ECONNREFUSED retry; switch back to a release tag once one includes it
+    image: qmcgaw/gluetun:latest@sha256:2733bb22b27e3efa7a9f2cef9057ec12791b8b225793fcd3dbfd0508404dfc25
     cap_add:
       - NET_ADMIN
     devices:
@@ -20,14 +21,16 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
       - VPN_TYPE=wireguard
-      #- OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+nr+pmp"}
+      # OpenVPN fallback: set VPN_TYPE=openvpn and swap the commented lines. Username needs +pmp (never +nr: Moderate NAT disables port forwarding).
+      #- OPENVPN_USER=${OPENVPN_USER:-"<yourUsername>+pmp"}
       #- OPENVPN_PASSWORD=${OPENVPN_PASSWORD:-"<secret>"}
       - WIREGUARD_PRIVATE_KEY=${WG_PRIV_KEY:-"<secret>"}
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":$(cat /tmp/gluetun/forwarded_port),\"current_network_interface\":\"tun0\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
       - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:5080/api/v2/app/setPreferences 2>&1'
 
-      - SERVER_COUNTRIES=Netherlands
+      - SERVER_COUNTRIES=Belgium
+      #- SERVER_COUNTRIES=Netherlands
       #- SERVER_CITIES=Amsterdam
       # Forces TCP as my home provider if FUCKING Ziggo!
       #- VPN_ENDPOINT_PORT=443
@@ -159,7 +162,7 @@ services:
     volumes:
       - qbittorrent-config:/config
       - data:/data
-      # NVMe staging for in-progress downloads; UGOS shared folder with 1 TB quota.
+      # NVMe staging for in-progress downloads (plain folder, no quota).
       # RAID5 + dm-cache can't absorb new random writes; finished torrents move to /data in one sequential copy.
       - /volume1/torrents-incomplete:/incomplete
 
@@ -296,7 +299,7 @@ services:
 
   seerr:
     container_name: seerr
-    image: ghcr.io/seerr-team/seerr:v3.4.1
+    image: ghcr.io/seerr-team/seerr:v3.5.2
     init: true
     network_mode: service:vpn
     environment:
