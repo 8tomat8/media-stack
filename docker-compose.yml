@@ -16,8 +16,6 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
-    env_file:
-      - .env
     environment:
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER:-protonvpn} # Valid values: nordvpn, expressvpn, protonvpn, surfshark or custom
       - VPN_TYPE=wireguard
@@ -67,7 +65,7 @@ services:
       # qBitTorrent
       - traefik.http.routers.qbittorrent.tls=true
       - traefik.http.routers.qbittorrent.tls.certresolver=le
-      - traefik.http.routers.qbittorrent.tls.domains[0].main=torrent.ms.${DOMAIN}
+      - traefik.http.routers.qbittorrent.tls.domains[0].main=torrent.ms.${DOMAIN:?run via media-stack-compose.service, it decrypts .env.secrets}
       - traefik.http.routers.qbittorrent.rule=Host(`torrent.ms.${DOMAIN}`)
       - traefik.http.routers.qbittorrent.service=qbittorrent
       - traefik.http.services.qbittorrent.loadbalancer.server.port=5080

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Onboard a media-server user: Jellyfin account + 1Password item + welcome message to paste in Telegram.
-# Usage: dotenvx run -- ./onboard.sh   (prompts: admin user, admin password, new username)
+# Usage: dotenvx run -f .env.secrets -- ./onboard.sh   (prompts: admin user, admin password, new username)
 set -euo pipefail
 export OP_ACCOUNT=my                                   # personal account; shell default is the work one
 
