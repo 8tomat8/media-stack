@@ -146,7 +146,8 @@ services:
   qbittorrent:
     <<: *healthcheck
     container_name: qbittorrent
-    image: lscr.io/linuxserver/qbittorrent:latest
+    # Pinned: MAM only allows listed client versions (5.3.0 rejected 2026-11); bump only after https://www.myanonamouse.net/tor/allowed_clients.php lists it
+    image: lscr.io/linuxserver/qbittorrent:version-5.2.4_v2.0.15
     network_mode: service:vpn
     restart: unless-stopped
 

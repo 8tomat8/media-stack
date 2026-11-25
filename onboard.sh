@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Onboard a media-server user: Jellyfin account + 1Password item + welcome message to paste in Telegram.
-# Usage: ./onboard.sh   (prompts: admin user, admin password, new username)
+# Usage: dotenvx run -- ./onboard.sh   (prompts: admin user, admin password, new username)
 set -euo pipefail
 export OP_ACCOUNT=my                                   # personal account; shell default is the work one
 
-. ./.env                                  # gitignored; local-only
 JELLYFIN=https://jellyfin.ms.${DOMAIN:?}
 SEERR=https://seerr.ms.${DOMAIN:?}
 TELEGRAM=${TELEGRAM_INVITE:?}
