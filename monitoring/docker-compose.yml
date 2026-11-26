@@ -1,0 +1,272 @@
+x-common: &common
+  restart: unless-stopped
+  # Global OOM killer picks monitoring before media apps.
+  oom_score_adj: 500
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+name: monitoring
+services:
+  victoriametrics:
+    <<: *common
+    container_name: victoriametrics
+    image: victoriametrics/victoria-metrics:v1.156.0
+    user: "1000:1000"
+    mem_limit: 512m
+    memswap_limit: 512m
+    command:
+      - -promscrape.config=/etc/victoriametrics/scrape.yml
+      - -storageDataPath=/storage
+      - -retentionPeriod=1y
+      - -memory.allowedBytes=256MiB
+      - -search.maxConcurrentRequests=2
+    volumes:
+      - ./victoriametrics/scrape.yml:/etc/victoriametrics/scrape.yml:ro
+      - victoriametrics-config:/storage
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8428/health"]
+
+  # No healthcheck: up{job="node-exporter"} covers it.
+  # Network usage comes from Telegraf per-container stats (vpn carries all media-app traffic).
+  node-exporter:
+    <<: *common
+    container_name: node-exporter
+    image: prom/node-exporter:v1.12.1
+    mem_limit: 64m
+    memswap_limit: 64m
+    pid: host
+    read_only: true
+    cap_drop:
+      - ALL
+    command:
+      - --path.rootfs=/host
+      # UGOS rootfs is overlay: default fs-types-exclude minus `overlay`, else `/` is missing and DiskSpaceLow fires forever
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tracefs)$$
+      # default mount-points-exclude + container overlays under any Docker root (NAS: /volume1/@docker)
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)|/overlay2/[^/]+/merged$$
+    volumes:
+      - /:/host:ro,rslave
+
+  # docker.sock is root-equivalent even :ro; telegraf stays off mynetwork (no egress, no published port).
+  # The socket is mounted only into telegraf and never exposed over the network.
+  # No healthcheck: up{job="telegraf"} covers it.
+  telegraf:
+    <<: *common
+    container_name: telegraf
+    image: telegraf:1.40.3-alpine
+    # 121 = docker.sock GID on the NAS
+    user: "telegraf:121"
+    mem_limit: 128m
+    memswap_limit: 128m
+    environment:
+      - GOMEMLIMIT=96MiB
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+
+  # mynetwork: reaches qBittorrent at vpn:5080. No healthcheck: up{job="qbittorrent-exporter"} covers it.
+  qbittorrent-exporter:
+    <<: *common
+    container_name: qbittorrent-exporter
+    image: esanchezm/prometheus-qbittorrent-exporter:v1.8.0
+    user: "1000:1000"
+    mem_limit: 128m
+    memswap_limit: 128m
+    read_only: true
+    cap_drop:
+      - ALL
+    environment:
+      - QBITTORRENT_HOST=vpn
+      - QBITTORRENT_PORT=5080
+      # qBittorrent >= 5.2 API key. A rejected key keeps the exporter up with qbittorrent_up 0 -> QbittorrentDown.
+      - QBITTORRENT_API_KEY=${QBITTORRENT_API_KEY:?}
+    networks:
+      - default
+      - mynetwork
+
+  grafana:
+    <<: *common
+    container_name: grafana
+    image: grafana/grafana:13.3.1
+    user: "1000:1000"
+    mem_limit: 512m
+    memswap_limit: 512m
+    depends_on:
+      - victoriametrics
+    environment:
+      - GOMEMLIMIT=400MiB
+      - GF_SERVER_ROOT_URL=https://grafana.ms.${DOMAIN}
+      - GF_AUTH_GENERIC_OAUTH_ENABLED=true
+      - GF_AUTH_GENERIC_OAUTH_NAME=PocketID
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${GF_AUTH_GENERIC_OAUTH_CLIENT_ID:?}
+      - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:?}
+      - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
+      - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://auth.${DOMAIN}/authorize
+      - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://auth.${DOMAIN}/api/oidc/token
+      - GF_AUTH_GENERIC_OAUTH_API_URL=https://auth.${DOMAIN}/api/oidc/userinfo
+      - GF_AUTH_GENERIC_OAUTH_USE_PKCE=true
+      - GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN=true
+      - GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH='Admin'
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_BASIC_ENABLED=false
+      - GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=true
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      # Interpolated by provisioning files
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:?}
+    volumes:
+      - grafana-config:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+    networks:
+      - default
+      - mynetwork
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=mynetwork
+      # Native PocketID OIDC; no edge auth middleware
+      - traefik.http.routers.grafana.tls=true
+      - traefik.http.routers.grafana.tls.certresolver=le
+      - traefik.http.routers.grafana.tls.domains[0].main=grafana.ms.${DOMAIN}
+      - traefik.http.routers.grafana.rule=Host(`grafana.ms.${DOMAIN}`)
+      - traefik.http.routers.grafana.service=grafana
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+
+  vectorchord:
+    <<: *common
+    container_name: vectorchord
+    image: tensorchord/vchord-postgres:pg17-v1.1.1
+    mem_limit: 1g
+    memswap_limit: 1g
+    shm_size: 512m
+    stop_signal: SIGINT
+    # Upstream command at half size: 1g limit vs upstream 2G
+    command:
+      - postgres
+      - -c
+      - log_checkpoints=off
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - max_connections=30
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?}
+      - POSTGRES_DB=streamystats
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - vectorchord-config:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d streamystats"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Runs DB migrations on start; healthcheck comes from the image.
+  streamystats-job-server:
+    <<: *common
+    container_name: streamystats-job-server
+    image: ghcr.io/fredrikburmester/streamystats-job-server:v2.22.2
+    mem_limit: 1g
+    memswap_limit: 1g
+    depends_on:
+      vectorchord:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - POSTGRES_HOST=vectorchord
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?}
+      - POSTGRES_DB=streamystats
+      - PORT=3005
+      - HOST=0.0.0.0
+      - NEXTJS_URL=http://streamystats-nextjs:3000
+      - INTERNAL_API_KEY=${SESSION_SECRET:?}
+    # mynetwork: reaches Jellyfin at vpn:8096
+    networks:
+      - default
+      - mynetwork
+
+  # Healthcheck comes from the image.
+  streamystats-nextjs:
+    <<: *common
+    container_name: streamystats-nextjs
+    image: ghcr.io/fredrikburmester/streamystats-nextjs:v2.22.2
+    mem_limit: 512m
+    memswap_limit: 512m
+    depends_on:
+      vectorchord:
+        condition: service_healthy
+      streamystats-job-server:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=384
+      - POSTGRES_HOST=vectorchord
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?}
+      - POSTGRES_DB=streamystats
+      - JOB_SERVER_URL=http://streamystats-job-server:3005
+      - HOSTNAME=0.0.0.0
+      - SESSION_SECRET=${SESSION_SECRET:?}
+      - INTERNAL_API_KEY=${SESSION_SECRET:?}
+      - NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:?}
+    networks:
+      - default
+      - mynetwork
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=mynetwork
+      # Owner-only: edge PocketID auth in front of Streamystats' own Jellyfin login
+      - traefik.http.routers.streamystats.tls=true
+      - traefik.http.routers.streamystats.tls.certresolver=le
+      - traefik.http.routers.streamystats.tls.domains[0].main=streamystats.ms.${DOMAIN}
+      - traefik.http.routers.streamystats.rule=Host(`streamystats.ms.${DOMAIN}`)
+      - traefik.http.routers.streamystats.service=streamystats
+      - traefik.http.services.streamystats.loadbalancer.server.port=3000
+      - traefik.http.routers.streamystats.middlewares=oidc-auth@file
+
+volumes:
+  grafana-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/monitoring/grafana"
+  victoriametrics-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/monitoring/victoriametrics"
+  vectorchord-config:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "/home/8tomat8/media-stack/config/monitoring/vectorchord"
+
+networks:
+  # monitoring_default: no egress, nothing published
+  default:
+    internal: true
+  mynetwork:
+    external: true

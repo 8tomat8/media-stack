@@ -220,3 +220,68 @@ location /qbt/ {
 ```
 
 - Restart containers
+
+## Monitoring
+
+Separate compose project `monitoring` in [`monitoring/`](monitoring/) ([`docker-compose.yml`](monitoring/docker-compose.yml)). It never touches the root project or `gateway` and publishes no ports.
+
+| service | purpose | mem limit |
+|---|---|---|
+| `victoriametrics` | metrics store ([`scrape.yml`](monitoring/victoriametrics/scrape.yml)), 1y retention | 512m |
+| `node-exporter` | host metrics | 64m |
+| `telegraf` | per-container metrics ([`telegraf.conf`](monitoring/telegraf/telegraf.conf)) | 128m |
+| `qbittorrent-exporter` | qBittorrent WebUI API metrics | 128m |
+| `grafana` | [dashboards](monitoring/grafana/dashboards/) + [alerting](monitoring/grafana/provisioning/) | 512m |
+| `vectorchord` | Postgres for Streamystats | 1g |
+| `streamystats-job-server` | Jellyfin sync | 1g |
+| `streamystats-nextjs` | Streamystats UI | 512m |
+
+- `https://grafana.ms.${DOMAIN}`: PocketID OIDC login, no local admin.
+- `https://streamystats.ms.${DOMAIN}`: owner only, PocketID edge login (`oidc-auth@file`) plus Streamystats' Jellyfin login. This is the Jellyfin usage UI (who watched what, per-user stats, popular content). First run: Jellyfin URL `http://vpn:8096` + a new Jellyfin API key.
+
+### Environment
+
+`docker compose` needs these variables (it refuses to start while one is missing):
+
+- `DOMAIN`: same as the root stack.
+- `TELEGRAM_BOT_TOKEN`: `@BotFather` → `/newbot`. `TELEGRAM_CHAT_ID`: press Start in the bot, then `curl -s "https://api.telegram.org/bot<token>/getUpdates" | jq '.result[].message.chat.id'`.
+- `GF_AUTH_GENERIC_OAUTH_CLIENT_ID` / `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET`: PocketID client `Grafana`, callback `https://grafana.ms.${DOMAIN}/login/generic_oauth`, allowed user groups = owner only.
+- `QBITTORRENT_API_KEY`: qBittorrent → Options → WebUI → API Key.
+- `POSTGRES_PASSWORD`, `SESSION_SECRET`, `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`: random strings (`openssl rand -hex 24`, `openssl rand -base64 32`, `openssl rand -hex 16`).
+
+### Deploy (on the NAS)
+
+```bash
+cd /home/8tomat8/media-stack
+[ "$(stat -c %g /var/run/docker.sock)" = 121 ] && docker inspect -f '{{.Name}} {{.State.StartedAt}}' $(docker ps -q) | sort > /tmp/started-before.txt
+git pull --ff-only
+mkdir -p config/monitoring/{grafana,victoriametrics,vectorchord}
+cd monitoring && docker compose -p monitoring up -d
+```
+
+Verify: the same `docker inspect` line into `/tmp/started-after.txt`; `diff` shows only the 8 new containers. Grafana → Alerting → Contact points → `telegram` → Test. Crash-loop test: `docker run -d --name crashtest --restart always alpine:3 sh -c 'sleep 5; exit 1'`, expect `ContainerCrashLoop` within ~5 min, then `docker rm -f crashtest`.
+
+Rollback: `docker compose -p monitoring down` in `monitoring/` (data stays in `config/monitoring/`).
+
+### Alerts
+
+Rules in [`alerting.yml`](monitoring/grafana/provisioning/alerting/alerting.yml), sent to Telegram.
+
+| alert | fires when |
+|---|---|
+| `HostMemoryLow` | MemAvailable < 25% of RAM for 10m |
+| `HostCpuSaturated` | CPU PSI > 0.5 for 15m |
+| `ContainerCrashLoop` | a container restarted 3+ times in 15m |
+| `ContainerNotRunning` | a compose container exited/dead/restarting/created for 5m |
+| `ContainerUnhealthy` | healthcheck unhealthy for 5m |
+| `ContainerMissing` | a compose container seen in the last day is gone for 5m |
+| `DiskSpaceLow` | `/`, `/volume1` or `/volume2` < 20% free for 15m |
+| `ScrapeTargetDown` | a scrape target down for 3m |
+| `QbittorrentDown` | qBittorrent WebUI API not answering for 5m |
+
+Tuning: edit `alerting.yml`, `git pull --ff-only` on the NAS, then `docker restart grafana`.
+
+Optional, each needs a maintenance window:
+
+- O1: Gluetun control server + Telegraf check of `vpn:8000/v1/portforward` + `VpnPortForwardMissing` alert; recreates `vpn` and all media apps (3–10 min down).
+- O2: Traefik Prometheus metrics on a private entrypoint + scrape job; recreates `traefik` (~1 min, all HTTPS routes down).
