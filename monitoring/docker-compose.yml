@@ -57,8 +57,9 @@ services:
     <<: *common
     container_name: telegraf
     image: telegraf:1.40.3-alpine
+    # 1000 = repo owner: UGOS ACLs on /home deny the image's telegraf uid (100) reading the bind-mounted config.
     # 121 = docker.sock GID on the NAS
-    user: "telegraf:121"
+    user: "1000:121"
     mem_limit: 128m
     memswap_limit: 128m
     environment:
