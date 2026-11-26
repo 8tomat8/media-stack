@@ -1,0 +1,20 @@
+[Unit]
+Description=Media Stack Monitoring Docker Compose Service
+Requires=docker.service
+After=docker.service media-stack-compose.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/8tomat8/media-stack/monitoring
+# User= keeps root from executing the user-writable dotenvx binary; docker group membership is enough for compose.
+User=8tomat8
+# Same key file as media-stack-compose.service: both .env.secrets files share one dotenvx key.
+EnvironmentFile=/home/8tomat8/.secrets/media-stack.keys
+# ../.env.secrets supplies DOMAIN; .env.secrets the monitoring secrets.
+ExecStart=/home/8tomat8/.local/bin/dotenvx run --strict -f ../.env.secrets -f .env.secrets -- /usr/bin/docker compose -p monitoring up -d
+ExecStop=/home/8tomat8/.local/bin/dotenvx run --strict -f ../.env.secrets -f .env.secrets -- /usr/bin/docker compose -p monitoring down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

@@ -256,12 +256,13 @@ cd /home/8tomat8/media-stack
 [ "$(stat -c %g /var/run/docker.sock)" = 121 ] && docker inspect -f '{{.Name}} {{.State.StartedAt}}' $(docker ps -q) | sort > /tmp/started-before.txt
 git pull --ff-only
 mkdir -p config/monitoring/{grafana,victoriametrics,vectorchord}
-cd monitoring && docker compose -p monitoring up -d
+sudo cp monitoring/monitoring-compose.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now monitoring-compose.service
 ```
 
 Verify: the same `docker inspect` line into `/tmp/started-after.txt`; `diff` shows only the 8 new containers. Grafana → Alerting → Contact points → `telegram` → Test. Crash-loop test: `docker run -d --name crashtest --restart always alpine:3 sh -c 'sleep 5; exit 1'`, expect `ContainerCrashLoop` within ~5 min, then `docker rm -f crashtest`.
 
-Rollback: `docker compose -p monitoring down` in `monitoring/` (data stays in `config/monitoring/`).
+Rollback: `sudo systemctl disable --now monitoring-compose.service` (runs `docker compose -p monitoring down`; data stays in `config/monitoring/`).
 
 ### Alerts
 
