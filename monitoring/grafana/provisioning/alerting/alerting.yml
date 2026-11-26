@@ -1,8 +1,38 @@
 apiVersion: 1
 
 # Interpolation: contact point settings and policies expand $VAR from Grafana's environment.
-# Rule annotations and query models are NOT interpolated (Grafana 13 file-provisioning docs),
-# so annotations use plain {{ $labels.x }}.
+# Rule annotations, query models and templates are NOT interpolated (Grafana 13 file provisioning),
+# so annotations use plain {{ $labels.x }} and the template may use $ freely.
+
+# Telegram HTML: every interpolated value goes through `html` (escapes < > & " ').
+# Grafana truncates the raw text at 4096 runes and a cut tag breaks HTML parsing, so the list stops at 10 alerts.
+templates:
+  - orgId: 1
+    name: telegram
+    template: |
+      {{ define "telegram.message" -}}
+      {{ if .Alerts.Firing -}}
+      {{ if eq .CommonLabels.severity "critical" }}🔴{{ else }}🟠{{ end }} <b>{{ .CommonLabels.alertname | html }}</b> · {{ .CommonLabels.severity | html }}{{ template "telegram.count" .Alerts.Firing }}
+      {{ template "telegram.summaries" .Alerts.Firing -}}
+      <a href="{{ (index .Alerts.Firing 0).GeneratorURL | html }}">Open</a> · <a href="{{ if eq (len .Alerts.Firing) 1 }}{{ (index .Alerts.Firing 0).SilenceURL | html }}{{ else }}{{ .ExternalURL | html }}alerting/silence/new?alertmanager=grafana&amp;matcher=alertname%3D{{ .CommonLabels.alertname | urlquery }}{{ end }}">Silence</a>
+      {{ end -}}
+      {{ if .Alerts.Resolved -}}
+      {{ if .Alerts.Firing }}
+      {{ end -}}
+      ✅ <b>Resolved: {{ .CommonLabels.alertname | html }}</b>{{ template "telegram.count" .Alerts.Resolved }}
+      {{ template "telegram.summaries" .Alerts.Resolved -}}
+      <a href="{{ (index .Alerts.Resolved 0).GeneratorURL | html }}">Open</a>
+      {{ end -}}
+      {{ end }}
+
+      {{ define "telegram.count" }}{{ if gt (len .) 1 }} · {{ len . }} alerts{{ end }}{{ end }}
+
+      {{ define "telegram.summaries" -}}
+      {{ range $index, $alert := . }}{{ if lt $index 10 }}{{ $alert.Annotations.summary | html }}
+      {{ end }}{{ end -}}
+      {{ if gt (len .) 10 }}…and {{ len (slice . 10) }} more
+      {{ end -}}
+      {{ end }}
 
 contactPoints:
   - orgId: 1
@@ -13,6 +43,9 @@ contactPoints:
         settings:
           bottoken: "$TELEGRAM_BOT_TOKEN"
           chatid: "$TELEGRAM_CHAT_ID"
+          message: '{{ template "telegram.message" . }}'
+          parse_mode: HTML
+          disable_web_page_preview: true
 
 policies:
   - orgId: 1
