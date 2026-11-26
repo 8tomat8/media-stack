@@ -179,7 +179,7 @@ services:
       - TZ=Europe/Amsterdam
 
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O- http://localhost:5010/ok >/dev/null || exit 1"]
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:5010/ok"]
       interval: 30s
       timeout: 5s
       retries: 3
