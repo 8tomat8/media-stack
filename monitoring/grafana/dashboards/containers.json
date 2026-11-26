@@ -24,6 +24,7 @@
     {
       "type": "timeseries",
       "title": "Memory",
+      "description": "Process memory (anon); excludes reclaimable file cache.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -41,7 +42,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (container_name) (docker_container_mem_usage)",
+          "expr": "max by (container_name) (docker_container_mem_active_anon + docker_container_mem_inactive_anon)",
           "legendFormat": "{{container_name}}"
         }
       ],
@@ -78,6 +79,7 @@
     {
       "type": "timeseries",
       "title": "Memory % of limit",
+      "description": "Process memory (anon); excludes reclaimable file cache.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -95,7 +97,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "max by (container_name) (docker_container_mem_usage_percent)",
+          "expr": "100 * max by (container_name) ((docker_container_mem_active_anon + docker_container_mem_inactive_anon) / docker_container_mem_limit)",
           "legendFormat": "{{container_name}}"
         }
       ],

@@ -567,6 +567,7 @@
       "id": 7,
       "type": "bargauge",
       "title": "Memory per container",
+      "description": "Process memory (anon); excludes reclaimable file cache.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -584,7 +585,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sort_desc(max by (container_name) (docker_container_mem_usage{container_status=\"running\"}))",
+          "expr": "sort_desc(max by (container_name) (docker_container_mem_active_anon{container_status=\"running\"} + docker_container_mem_inactive_anon{container_status=\"running\"}))",
           "legendFormat": "{{container_name}}",
           "instant": true,
           "range": false
@@ -863,6 +864,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "Top 5 memory",
+      "description": "Process memory (anon); excludes reclaimable file cache.",
       "datasource": {
         "type": "prometheus",
         "uid": "victoriametrics"
@@ -880,7 +882,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "topk_max(5, max by (container_name) (docker_container_mem_usage))",
+          "expr": "topk_max(5, max by (container_name) (docker_container_mem_active_anon + docker_container_mem_inactive_anon))",
           "legendFormat": "{{container_name}}"
         }
       ],
