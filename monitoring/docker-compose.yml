@@ -116,6 +116,7 @@ services:
       - GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=true
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/overview.json
       # Interpolated by provisioning files
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:?}

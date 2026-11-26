@@ -237,6 +237,7 @@ Separate compose project `monitoring` in [`monitoring/`](monitoring/) ([`docker-
 | `streamystats-nextjs` | Streamystats UI | 512m |
 
 - `https://grafana.ms.${DOMAIN}`: PocketID OIDC login, no local admin.
+- Home dashboard: [`overview.json`](monitoring/grafana/dashboards/overview.json) (`Server overview`), a one-screen summary of host, containers, disks, network, VPN/qBittorrent and alerts.
 - `https://streamystats.ms.${DOMAIN}`: owner only, PocketID edge login (`oidc-auth@file`) plus Streamystats' Jellyfin login. This is the Jellyfin usage UI (who watched what, per-user stats, popular content). First run: Jellyfin URL `http://vpn:8096` + a new Jellyfin API key.
 
 ### Environment
