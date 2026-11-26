@@ -93,12 +93,12 @@ services:
     container_name: grafana
     image: grafana/grafana:13.3.1
     user: "1000:1000"
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1g
+    memswap_limit: 1g
     depends_on:
       - victoriametrics
     environment:
-      - GOMEMLIMIT=400MiB
+      - GOMEMLIMIT=800MiB
       - GF_SERVER_ROOT_URL=https://grafana.ms.${DOMAIN}
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
       - GF_AUTH_GENERIC_OAUTH_NAME=PocketID
@@ -120,6 +120,7 @@ services:
       # Interpolated by provisioning files
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:?}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:?}
+      - GRAFANAREADER_PASSWORD=${GRAFANAREADER_PASSWORD:?}
     volumes:
       - grafana-config:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -200,6 +201,7 @@ services:
       - POSTGRES_DB=streamystats
       - PORT=3005
       - HOST=0.0.0.0
+      # Only for a best-effort cache refresh after embedding jobs; sync and session polling run without the UI.
       - NEXTJS_URL=http://streamystats-nextjs:3000
       - INTERNAL_API_KEY=${SESSION_SECRET:?}
     # mynetwork: reaches Jellyfin at vpn:8096
@@ -207,9 +209,10 @@ services:
       - default
       - mynetwork
 
-  # Healthcheck comes from the image.
+  # On demand only (`--profile ui`); needed to change Streamystats settings. Healthcheck comes from the image.
   streamystats-nextjs:
     <<: *common
+    profiles: [ui]
     container_name: streamystats-nextjs
     image: ghcr.io/fredrikburmester/streamystats-nextjs:v2.22.2
     mem_limit: 512m

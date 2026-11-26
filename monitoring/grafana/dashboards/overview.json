@@ -14,6 +14,20 @@
   "tags": [
     "monitoring"
   ],
+  "links": [
+    {
+      "title": "Jellyfin usage",
+      "type": "link",
+      "url": "/d/jellyfin-usage",
+      "icon": "dashboard",
+      "tooltip": "",
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": false,
+      "tags": []
+    }
+  ],
   "templating": {
     "list": []
   },

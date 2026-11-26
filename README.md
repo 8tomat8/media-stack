@@ -231,14 +231,38 @@ Separate compose project `monitoring` in [`monitoring/`](monitoring/) ([`docker-
 | `node-exporter` | host metrics | 64m |
 | `telegraf` | per-container metrics ([`telegraf.conf`](monitoring/telegraf/telegraf.conf)) | 128m |
 | `qbittorrent-exporter` | qBittorrent WebUI API metrics | 128m |
-| `grafana` | [dashboards](monitoring/grafana/dashboards/) + [alerting](monitoring/grafana/provisioning/) | 512m |
+| `grafana` | [dashboards](monitoring/grafana/dashboards/) + [alerting](monitoring/grafana/provisioning/) | 1g |
 | `vectorchord` | Postgres for Streamystats | 1g |
-| `streamystats-job-server` | Jellyfin sync | 1g |
-| `streamystats-nextjs` | Streamystats UI | 512m |
+| `streamystats-job-server` | Jellyfin sync, the durable watch-history archive | 1g |
+| `streamystats-nextjs` | Streamystats UI, on demand only (`--profile ui`) | 512m |
 
 - `https://grafana.ms.${DOMAIN}`: PocketID OIDC login, no local admin.
 - Home dashboard: [`overview.json`](monitoring/grafana/dashboards/overview.json) (`Server overview`), a one-screen summary of host, containers, disks, network, VPN/qBittorrent and alerts.
-- `https://streamystats.ms.${DOMAIN}`: owner only, PocketID edge login (`oidc-auth@file`) plus Streamystats' Jellyfin login. This is the Jellyfin usage UI (who watched what, per-user stats, popular content). First run: Jellyfin URL `http://vpn:8096` + a new Jellyfin API key.
+- [`jellyfin-usage.json`](monitoring/grafana/dashboards/jellyfin-usage.json) (`Jellyfin usage`, linked from `Server overview`): one screen of top titles, hours per user, recent history, never-watched titles and a weekday × hour heatmap, read from the Streamystats Postgres as `grafanareader`.
+- `https://streamystats.ms.${DOMAIN}`: owner only, PocketID edge login (`oidc-auth@file`) plus Streamystats' Jellyfin login; needed only to change Streamystats settings. First run: Jellyfin URL `http://vpn:8096` + a new Jellyfin API key.
+
+### Streamystats
+
+The UI is off by default; sync keeps running without it. Start it, change settings, remove it:
+
+```bash
+cd /home/8tomat8/media-stack/monitoring
+(set -a; . ~/.secrets/media-stack.keys; set +a; ~/.local/bin/dotenvx run --strict -f ../.env.secrets -f .env.secrets -- docker compose -p monitoring --profile ui up -d streamystats-nextjs)
+docker rm -f streamystats-nextjs
+```
+
+One-time read-only role for Grafana (password from the decrypted `GRAFANAREADER_PASSWORD`; no access to `servers`, which holds the Jellyfin API key):
+
+```bash
+cd /home/8tomat8/media-stack/monitoring
+(set -a; . ~/.secrets/media-stack.keys; set +a; ~/.local/bin/dotenvx run --strict -f .env.secrets -- sh -c 'PW="$GRAFANAREADER_PASSWORD" docker exec -i -e PW vectorchord psql -v ON_ERROR_STOP=1 -U postgres -d streamystats') <<'SQL'
+\getenv pw PW
+CREATE ROLE grafanareader LOGIN PASSWORD :'pw';
+GRANT CONNECT ON DATABASE streamystats TO grafanareader;
+GRANT USAGE ON SCHEMA public TO grafanareader;
+GRANT SELECT ON sessions, items, users, libraries TO grafanareader;
+SQL
+```
 
 ### Environment
 
@@ -249,6 +273,7 @@ Separate compose project `monitoring` in [`monitoring/`](monitoring/) ([`docker-
 - `GF_AUTH_GENERIC_OAUTH_CLIENT_ID` / `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET`: PocketID client `Grafana`, callback `https://grafana.ms.${DOMAIN}/login/generic_oauth`, allowed user groups = owner only.
 - `QBITTORRENT_API_KEY`: qBittorrent → Options → WebUI → API Key.
 - `POSTGRES_PASSWORD`, `SESSION_SECRET`, `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`: random strings (`openssl rand -hex 24`, `openssl rand -base64 32`, `openssl rand -hex 16`).
+- `GRAFANAREADER_PASSWORD`: random string (`openssl rand -hex 24`), the `grafanareader` Postgres role password.
 
 ### Deploy (on the NAS)
 
@@ -261,7 +286,7 @@ sudo cp monitoring/monitoring-compose.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now monitoring-compose.service
 ```
 
-Verify: the same `docker inspect` line into `/tmp/started-after.txt`; `diff` shows only the 8 new containers. Grafana → Alerting → Contact points → `telegram` → Test. Crash-loop test: `docker run -d --name crashtest --restart always alpine:3 sh -c 'sleep 5; exit 1'`, expect `ContainerCrashLoop` within ~5 min, then `docker rm -f crashtest`.
+Verify: the same `docker inspect` line into `/tmp/started-after.txt`; `diff` shows only the 7 new containers (`streamystats-nextjs` stays off). Grafana → Alerting → Contact points → `telegram` → Test. Crash-loop test: `docker run -d --name crashtest --restart always alpine:3 sh -c 'sleep 5; exit 1'`, expect `ContainerCrashLoop` within ~5 min, then `docker rm -f crashtest`.
 
 Rollback: `sudo systemctl disable --now monitoring-compose.service` (runs `docker compose -p monitoring down`; data stays in `config/monitoring/`).
 
@@ -274,9 +299,9 @@ Rules in [`alerting.yml`](monitoring/grafana/provisioning/alerting/alerting.yml)
 | `HostMemoryLow` | MemAvailable < 25% of RAM for 10m |
 | `HostCpuSaturated` | CPU PSI > 0.5 for 15m |
 | `ContainerCrashLoop` | a container restarted 3+ times in 15m |
-| `ContainerNotRunning` | a compose container exited/dead/restarting/created for 5m |
+| `ContainerNotRunning` | a compose container (not `streamystats-nextjs`) exited/dead/restarting/created for 5m |
 | `ContainerUnhealthy` | healthcheck unhealthy for 5m |
-| `ContainerMissing` | a compose container seen in the last day is gone for 5m |
+| `ContainerMissing` | a compose container (not `streamystats-nextjs`) seen in the last day is gone for 5m |
 | `DiskSpaceLow` | `/`, `/volume1` or `/volume2` < 20% free for 15m |
 | `ScrapeTargetDown` | a scrape target down for 3m |
 | `QbittorrentDown` | qBittorrent WebUI API not answering for 5m |

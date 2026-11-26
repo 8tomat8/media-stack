@@ -8,3 +8,16 @@ datasources:
     isDefault: true
     jsonData:
       timeInterval: 30s
+
+  # Read-only role; see README "Streamystats" for the one-time CREATE ROLE.
+  - name: Streamystats
+    uid: streamystats
+    type: postgres
+    url: vectorchord:5432
+    user: grafanareader
+    jsonData:
+      database: streamystats
+      sslmode: disable
+      postgresVersion: 1700
+    secureJsonData:
+      password: $GRAFANAREADER_PASSWORD

@@ -106,11 +106,12 @@ groups:
         labels: {severity: critical}
         annotations: {summary: "{{ $labels.container_name }} restarted 3+ times in 15m (crash loop)"}
 
+      # streamystats-nextjs is the on-demand Streamystats UI (`--profile ui`): stopped by design.
       - uid: container-not-running
         title: ContainerNotRunning
         condition: C
         data:
-          - {refId: A, datasourceUid: victoriametrics, relativeTimeRange: {from: 300, to: 0}, model: {refId: A, instant: true, expr: 'count by (com_docker_compose_project, container_name) (docker_container_status_exitcode{container_status!="running",com_docker_compose_project!=""})'}}
+          - {refId: A, datasourceUid: victoriametrics, relativeTimeRange: {from: 300, to: 0}, model: {refId: A, instant: true, expr: 'count by (com_docker_compose_project, container_name) (docker_container_status_exitcode{container_status!="running",com_docker_compose_project!="",container_name!="streamystats-nextjs"})'}}
           - {refId: B, datasourceUid: __expr__, model: {refId: B, type: reduce, expression: A, reducer: last}}
           - {refId: C, datasourceUid: __expr__, model: {refId: C, type: threshold, expression: B, conditions: [{evaluator: {type: gt, params: [0]}}]}}
         for: 5m
@@ -133,11 +134,12 @@ groups:
         annotations: {summary: "{{ $labels.container_name }} is unhealthy"}
 
       # Self-clears 1 day after the container disappears (no static service list to maintain).
+      # streamystats-nextjs is the on-demand Streamystats UI (`--profile ui`): removed by design.
       - uid: container-missing
         title: ContainerMissing
         condition: C
         data:
-          - {refId: A, datasourceUid: victoriametrics, relativeTimeRange: {from: 300, to: 0}, model: {refId: A, instant: true, expr: 'count by (com_docker_compose_project, container_name) (present_over_time(docker_container_status_exitcode{com_docker_compose_project!=""}[1d])) unless count by (com_docker_compose_project, container_name) (docker_container_status_exitcode) unless on() (up{job="telegraf"} == 0)'}}
+          - {refId: A, datasourceUid: victoriametrics, relativeTimeRange: {from: 300, to: 0}, model: {refId: A, instant: true, expr: 'count by (com_docker_compose_project, container_name) (present_over_time(docker_container_status_exitcode{com_docker_compose_project!="",container_name!="streamystats-nextjs"}[1d])) unless count by (com_docker_compose_project, container_name) (docker_container_status_exitcode{container_name!="streamystats-nextjs"}) unless on() (up{job="telegraf"} == 0)'}}
           - {refId: B, datasourceUid: __expr__, model: {refId: B, type: reduce, expression: A, reducer: last}}
           - {refId: C, datasourceUid: __expr__, model: {refId: C, type: threshold, expression: B, conditions: [{evaluator: {type: gt, params: [0]}}]}}
         for: 5m

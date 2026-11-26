@@ -1,0 +1,406 @@
+{
+  "uid": "jellyfin-usage",
+  "title": "Jellyfin usage",
+  "id": null,
+  "editable": false,
+  "schemaVersion": 41,
+  "timezone": "browser",
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "",
+  "tags": [
+    "monitoring"
+  ],
+  "links": [
+    {
+      "title": "Server overview",
+      "type": "link",
+      "url": "/d/overview",
+      "icon": "dashboard",
+      "tooltip": "",
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": false,
+      "tags": []
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "streamystats"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "streamystats"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  sum(play_duration) / 3600.0 AS \"hours\",\n  count(*) AS \"plays\",\n  count(DISTINCT user_name) AS \"users\"\nFROM sessions\nWHERE $__timeFilter(start_time) AND play_duration > 0"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "vertical",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Top titles",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "streamystats"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "streamystats"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  coalesce(series_name, item_name) AS \"title\",\n  count(*) AS \"plays\",\n  sum(play_duration) / 3600.0 AS \"hours\",\n  count(DISTINCT user_name) AS \"users\"\nFROM sessions\nWHERE $__timeFilter(start_time) AND play_duration > 0\nGROUP BY 1\nORDER BY \"hours\" DESC\nLIMIT 50"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "minWidth": 50
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hours"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Hours watched per user",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "streamystats"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 2,
+        "w": 10,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "streamystats"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(start_time, '1d', 0),\n  user_name AS \"metric\",\n  sum(play_duration) / 3600.0 AS \"hours\"\nFROM sessions\nWHERE $__timeFilter(start_time) AND play_duration > 0\nGROUP BY 1, 2\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Never watched",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "streamystats"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 2,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "streamystats"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name, type, date_created\nFROM items\nWHERE type IN ('Movie', 'Series')\n  AND deleted_at IS NULL\n  AND id NOT IN (\n    SELECT item_id FROM sessions WHERE item_id IS NOT NULL\n    UNION SELECT series_id FROM sessions WHERE series_id IS NOT NULL\n    UNION SELECT items.series_id FROM sessions JOIN items ON items.server_id = sessions.server_id AND items.id = sessions.item_id WHERE items.series_id IS NOT NULL\n  )\nORDER BY date_created NULLS LAST\nLIMIT 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "minWidth": 50
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "date_created"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Recent history",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "streamystats"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 14,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "streamystats"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  start_time,\n  user_name,\n  CASE WHEN series_name IS NULL THEN item_name ELSE series_name || ' — ' || item_name END AS \"title\",\n  device_name,\n  client_name,\n  play_duration\nFROM sessions\nWHERE $__timeFilter(start_time) AND play_duration > 0\nORDER BY start_time DESC\nLIMIT 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "minWidth": 50
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:YYYY-MM-DD HH:mm"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "play_duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Plays by weekday × 3h of day (Europe/Amsterdam)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "streamystats"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 11,
+        "w": 10,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "streamystats"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH plays AS (\n  SELECT\n    extract(isodow FROM start_time AT TIME ZONE 'Europe/Amsterdam')::int AS isodow,\n    extract(hour FROM start_time AT TIME ZONE 'Europe/Amsterdam')::int / 3 * 3 AS hour,\n    count(*) AS plays\n  FROM sessions\n  WHERE $__timeFilter(start_time) AND play_duration > 0\n  GROUP BY 1, 2\n)\nSELECT\n  (ARRAY['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])[isodow] AS \"weekday\",\n  lpad(hour::text, 2, '0') AS \"hour\",\n  coalesce(plays.plays, 0) AS \"plays\"\nFROM generate_series(1, 7) AS isodow\nCROSS JOIN generate_series(0, 21, 3) AS hour\nLEFT JOIN plays USING (isodow, hour)\nORDER BY isodow, hour"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "hour",
+            "rowField": "weekday",
+            "valueField": "plays"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "custom": {
+            "align": "center",
+            "minWidth": 50,
+            "cellOptions": {
+              "type": "color-background",
+              "mode": "basic"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weekday\\hour"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": " "
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    }
+  ]
+}
